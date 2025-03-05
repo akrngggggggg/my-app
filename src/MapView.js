@@ -125,36 +125,49 @@ const MapView = () => {
       <div style={{ position: "absolute", bottom: "10px", right: "10px", zIndex: 1000 }}>
         <button 
           onClick={goToCurrentLocation}  
-          style={{ backgroundColor: "blue", color: "white", padding: "10px", borderRadius: "5px" }}
+          style={{ backgroundColor: "blue", color: "white", 
+            padding: "20px 40px",
+            fontSize: "36px",
+            borderRadius: "5px" }}
         >
           現在地に戻る
         </button>
       </div>
 
       {/* 🔥 モードボタン */}
-      <div style={{ position: "absolute", top: "10px", right: "10px", zIndex: 1000 }}>
-        <button 
-          onClick={() => setShowModeMenu(!showModeMenu)}
-          style={{ backgroundColor: mode === "inspection" ? "blue" : mode === "move" ? "green" : "red", color: "white", padding: "10px", borderRadius: "5px" }}
-        >
-          モード：{mode === "inspection" ? "点検" : mode === "move" ? "移動" : "追加・削除"}
-        </button>
-        {showModeMenu && (
-          <div style={{
-              position: "absolute", top: "40px", right: "0px", backgroundColor: "white",
-              padding: "5px", border: "1px solid black", borderRadius: "5px"
-            }}>
-            <button onClick={() => handleModeChange("inspection")} style={{ backgroundColor: "blue", color: "white" }}>点検</button>
-            <button onClick={() => handleModeChange("move")} style={{ backgroundColor: "green", color: "white" }}>移動</button>
-            <button onClick={() => handleModeChange("add")} style={{ backgroundColor: "red", color: "white" }}>追加・削除</button>
-          </div>
-        )}
-      </div>
+<div style={{ position: "absolute", top: "10px", right: "10px", zIndex: 1000 }}>
+  <button 
+    onClick={() => setShowModeMenu(!showModeMenu)}
+    style={{
+      backgroundColor: mode === "inspection" ? "blue" : mode === "move" ? "green" : "red",
+      color: "white",
+      padding: "20px 40px",  // paddingを2倍にしてボタンを大きく
+      fontSize: "36px",      // フォントサイズを2倍にして文字を大きく
+      borderRadius: "5px"
+    }}
+  >
+    モード：{mode === "inspection" ? "点検" : mode === "move" ? "移動" : "追加・削除"}
+  </button>
+  {showModeMenu && (
+    <div style={{
+        position: "absolute", top: "40px", right: "0px", backgroundColor: "white",
+        padding: "10px", border: "1px solid black", borderRadius: "5px"
+      }}>
+      <button onClick={() => handleModeChange("inspection")} style={{ backgroundColor: "blue", color: "white", padding: "20px 40px", fontSize: "36px" }}>点検</button>
+      <button onClick={() => handleModeChange("move")} style={{ backgroundColor: "green", color: "white", padding: "20px 40px", fontSize: "36px" }}>移動</button>
+      <button onClick={() => handleModeChange("add")} style={{ backgroundColor: "red", color: "white", padding: "20px 40px", fontSize: "36px" }}>追加・削除</button>
+    </div>
+  )}
+</div>
+
 
       {/* 🔥 保存ボタン（右下に配置） */}
       <div style={{ position: "absolute", bottom: "10px", left: "10px", zIndex: 1000 }}>
         <button onClick={saveHydrants} 
-          style={{ backgroundColor: "orange", color: "white", padding: "10px", borderRadius: "5px" }}>
+          style={{ backgroundColor: "orange", color: "white", 
+            padding: "20px 40px",
+            fontSize: "36px",
+            borderRadius: "5px" }}>
           保存
         </button>
       </div>
