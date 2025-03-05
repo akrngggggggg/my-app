@@ -10,20 +10,13 @@ exports.handler = async function (event) {
   }
 
   try {
-    // 🔥 ここを修正！Netlifyでは process.cwd() を使う！
-    const filePath = path.join(process.cwd(), "public/data/fire_hydrants.json");
+    // 🔥 NetlifyのFunctionsでは /tmp/ を使う
+    const filePath = path.join("/tmp", "fire_hydrants.json");
 
     console.log("📁 [DEBUG] 保存先ファイル:", filePath);
 
     const newData = JSON.parse(event.body);
     console.log("📊 [DEBUG] 受け取ったデータ:", newData);
-
-    // 🔥 ディレクトリが存在しない場合は作成する
-    const dirPath = path.dirname(filePath);
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-      console.log("📂 [DEBUG] ディレクトリを作成しました:", dirPath);
-    }
 
     // JSONファイルにデータを保存
     fs.writeFileSync(filePath, JSON.stringify(newData, null, 2));
@@ -32,7 +25,7 @@ exports.handler = async function (event) {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "データが保存されました" }),
+      body: JSON.stringify({ message: "データが保存されました", path: filePath }),
     };
   } catch (error) {
     console.error("❌ [ERROR] 保存エラー:", error);
