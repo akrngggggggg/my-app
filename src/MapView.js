@@ -126,8 +126,8 @@ const MapView = () => {
         <button 
           onClick={goToCurrentLocation}  
           style={{ backgroundColor: "blue", color: "white", 
-            padding: "20px 40px",
-            fontSize: "36px",
+            padding: "15px 35px",
+            fontSize: "28px",
             borderRadius: "5px" }}
         >
           現在地に戻る
@@ -141,8 +141,8 @@ const MapView = () => {
     style={{
       backgroundColor: mode === "inspection" ? "blue" : mode === "move" ? "green" : "red",
       color: "white",
-      padding: "20px 40px",  // paddingを2倍にしてボタンを大きく
-      fontSize: "36px",      // フォントサイズを2倍にして文字を大きく
+      padding: "15px 35px",  // paddingを2倍にしてボタンを大きく
+      fontSize: "28px",      // フォントサイズを2倍にして文字を大きく
       borderRadius: "5px"
     }}
   >
@@ -165,8 +165,8 @@ const MapView = () => {
       <div style={{ position: "absolute", bottom: "10px", left: "10px", zIndex: 1000 }}>
         <button onClick={saveHydrants} 
           style={{ backgroundColor: "orange", color: "white", 
-            padding: "20px 40px",
-            fontSize: "36px",
+            padding: "15px 30px",
+            fontSize: "25px",
             borderRadius: "5px" }}>
           保存
         </button>
@@ -174,14 +174,14 @@ const MapView = () => {
 
       {/* 🔥 成功メッセージ */}
       {saveSuccess && (
-        <div style={{ position: "absolute", bottom: "50px", left: "10px", backgroundColor: "green", color: "white", padding: "10px", borderRadius: "5px", zIndex: 1000 }}>
+        <div style={{ position: "absolute", bottom: "50px", left: "10px", backgroundColor: "green", color: "white", padding: "20px", borderRadius: "5px", zIndex: 1000 }}>
           保存が完了しました！
         </div>
       )}
 
       {/* 🔥 エラーメッセージ */}
       {saveError && (
-        <div style={{ position: "absolute", bottom: "50px", left: "10px", backgroundColor: "red", color: "white", padding: "10px", borderRadius: "5px", zIndex: 1000 }}>
+        <div style={{ position: "absolute", bottom: "50px", left: "10px", backgroundColor: "red", color: "white", padding: "20px", borderRadius: "5px", zIndex: 1000 }}>
           保存に失敗しました。もう一度お試しください。
         </div>
       )}
