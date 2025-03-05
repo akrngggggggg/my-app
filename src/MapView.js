@@ -27,6 +27,12 @@ const MapView = () => {
   const [hydrants, setHydrants] = useState([]);
   const [mode, setMode] = useState("inspection");
   const [showModeMenu, setShowModeMenu] = useState(false);
+
+  const handleModeChange = (newMode) => {
+    setMode(newMode);
+    setTimeout(() => setShowModeMenu(false), 0);
+  };
+  
   const [newMarkerPosition, setNewMarkerPosition] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [moveTarget, setMoveTarget] = useState(null);
