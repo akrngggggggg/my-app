@@ -65,37 +65,36 @@ const MapView = () => {
   }, []);
 
   const fetchData = () => {
-    fetch("/data/fire_hydrants.json")
+    fetch("/.netlify/functions/get_hydrants")
       .then((response) => response.json())
       .then((data) => {
         if (data.length > 0) {
-          const formattedData = data.map((marker) => ({
-            ...marker,
-            id: String(marker.id),
-            checked: false,
-          }));
-          setHydrants(formattedData);
-          localStorage.setItem("fire_hydrants", JSON.stringify(formattedData));
+          setHydrants(data);
         }
       })
       .catch((error) => console.error("データ取得失敗:", error));
   };
-
-  const handleModeChange = (newMode) => {
-    setMode(newMode);
-    setTimeout(() => setShowModeMenu(false), 0);
-  };
-
+  
   const saveHydrants = () => {
-    try {
-      localStorage.setItem("fire_hydrants", JSON.stringify(hydrants));
-      setSaveSuccess(true);
-      setSaveError(false);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
-      setSaveError(true);
-      setTimeout(() => setSaveError(false), 3000);
-    }
+    fetch("/.netlify/functions/save_hydrants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(hydrants),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.message) {
+          setSaveSuccess(true);
+          setSaveError(false);
+          setTimeout(() => setSaveSuccess(false), 3000);
+        } else {
+          throw new Error("保存失敗");
+        }
+      })
+      .catch(() => {
+        setSaveError(true);
+        setTimeout(() => setSaveError(false), 3000);
+      });
   };
 
   // 現在地に戻るボタンを押したときの処理
