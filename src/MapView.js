@@ -16,10 +16,12 @@ const tankIcon = L.divIcon({
   iconSize: [12, 12],
 });
 
-const userIcon = L.divIcon({
-  className: "custom-marker",
-  html: '<div style="width:14px; height:14px; background-color:lightblue; border-radius:50%; border:2px solid white;"></div>',
-  iconSize: [14, 14],
+// 👤 現在地マーカーを「人型」に変更！
+const userIcon = L.icon({
+  iconUrl: "https://maps.google.com/mapfiles/kml/shapes/man.png", // Googleマップの人型アイコン
+  iconSize: [32, 32], 
+  iconAnchor: [16, 32], 
+  popupAnchor: [0, -32],
 });
 
 const MapView = () => {
@@ -73,7 +75,7 @@ const MapView = () => {
       <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-        {/* 🔵 現在地マーカー */}
+        {/* 👤 現在地マーカー（人型） */}
         {userLocation && (
           <Marker position={userLocation} icon={userIcon}>
             <Popup>現在地</Popup>
