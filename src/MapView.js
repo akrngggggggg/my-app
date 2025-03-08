@@ -13,14 +13,14 @@ const userIcon = new L.Icon({
   popupAnchor: [0, -32],
 });
 
-const hydrantIcon = new L.Icon({
+const redIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png", // 赤マーカー（消火栓）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
 });
 
-const tankIcon = new L.Icon({
+const blueIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png", // 青マーカー（防火水槽）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
@@ -31,10 +31,13 @@ const MapView = () => {
   const defaultPosition = [35.3933, 139.3072]; // 伊勢原市の中心座標
   const defaultZoom = 16;
 
+  // 🔥 必要な `useState` 変数を定義（エラー修正）
   const [hydrants, setHydrants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState(defaultPosition);
   const [mapZoom, setMapZoom] = useState(defaultZoom);
+  const [mode, setMode] = useState("inspection"); // 🔥 点検/編集モード
+  const [showModeMenu, setShowModeMenu] = useState(false); // 🔥 モード切替メニューの表示
 
   /** 🔥 データ取得処理 */
   const fetchData = useCallback(() => {
@@ -68,7 +71,7 @@ const MapView = () => {
         }
       );
     }
-  }, [fetchData]);
+  }, [fetchData])
 
   /** 🔥 現在地に戻る */
   const moveToCurrentLocation = () => {
@@ -96,24 +99,38 @@ const MapView = () => {
     alert("データを保存しました！");
   };
 
+  /** 🔥 現在地に戻る */
+  const moveToCurrentLocation = () => {
+    if (userLocation) {
+      setMapCenter(userLocation);
+      setMapZoom(16);
+    } else {
+      alert("現在地が取得できませんでした");
+    }
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-        {/* 🔵 ユーザーの現在地マーカー（青） */}
+        {/* 🔵 ユーザーの現在地マーカー（水色） */}
         {userLocation && (
-          <Marker position={userLocation} icon={blueIcon}>
+          <Marker position={userLocation} icon={userIcon}>
             <Popup>現在地</Popup>
           </Marker>
         )}
 
-        {/* 🔥 消火栓データの表示（赤） */}
-        {hydrants.map((hydrant) => (
-          <Marker key={hydrant.id} position={[hydrant.lat, hydrant.lon]} icon={redIcon}>
+        {/* 🔥 消火栓 & 防火水槽のマーカー */}
+        {hydrants.map((item) => (
+          <Marker 
+            key={item.id} 
+            position={[item.lat, item.lon]} 
+            icon={item.type === "防火水槽" ? blueIcon : redIcon} // 防火水槽なら青、それ以外（消火栓）は赤
+          >
             <Popup>
-              <b>種類:</b> {hydrant.type} <br />
-              <b>ID:</b> {hydrant.id}
+              <b>種類:</b> {item.type} <br />
+              <b>ID:</b> {item.id}
             </Popup>
           </Marker>
         ))}
