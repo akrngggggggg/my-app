@@ -95,7 +95,7 @@ const MapView = () => {
         }
       );
     }
-  }, []);
+  
 
   const fetchData = () => {
     console.log("📡 [DEBUG] fetchData() 実行開始");
