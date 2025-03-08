@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
 // 🔥 Firestore への保存関数
 const saveToFirestore = async (hydrants) => {
   try {
-    const response = await fetch("/.netlify/functions/save_hydrants", {
+    await fetch("/.netlify/functions/save_hydrants", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data: hydrants }),
@@ -45,17 +45,15 @@ const MapView = () => {
 
   const [hydrants, setHydrants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
+  const [mode, setMode] = useState("inspection"); // "inspection" | "move" | "edit"
 
   // ✅ Firestore からのデータ取得
   useEffect(() => {
     fetch("/.netlify/functions/get_hydrants")
       .then((response) => response.json())
       .then((data) => {
-        console.log("📥 Firestore から取得したデータ:", data);
         if (data && Array.isArray(data.data)) {
-          setHydrants(data.data); // 🚨 ここを `data.data` に変更
-        } else {
-          console.error("🚨 Firestore のデータが不正な形式:", data);
+          setHydrants(data.data);
         }
       })
       .catch((error) => console.error("❌ データ取得失敗:", error));
@@ -75,28 +73,66 @@ const MapView = () => {
     }
   }, []);
 
+  // ✅ マーカーのクリック処理
+  const handleMarkerClick = (id) => {
+    if (mode === "inspection") {
+      // 🔥 点検モード（クリックで "checked" を切り替え）
+      setHydrants((prev) =>
+        prev.map((marker) =>
+          marker.id === id ? { ...marker, checked: !marker.checked } : marker
+        )
+      );
+    } else if (mode === "edit") {
+      // 🔥 追加削除モード（クリックで削除）
+      const confirmDelete = window.confirm("⚠️ このマーカーを削除しますか？");
+      if (confirmDelete) {
+        setHydrants((prev) => prev.filter((marker) => marker.id !== id));
+      }
+    }
+  };
+
+  // ✅ マーカーを移動（移動モード）
+  const updateMarkerPosition = (id, newLat, newLon) => {
+    if (mode === "move") {
+      const confirmMove = window.confirm("📌 マーカーの位置を変更しますか？");
+      if (confirmMove) {
+        setHydrants((prev) =>
+          prev.map((marker) => (marker.id === id ? { ...marker, lat: newLat, lon: newLon } : marker))
+        );
+      }
+    }
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={defaultPosition} zoom={defaultZoom} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         {/* 🔥 初期マーカー表示 */}
-        {hydrants.length > 0 ? (
-          hydrants.map((item) => {
-            console.log("📍 マーカー描画:", item);
-            const markerIcon = item.type.includes("防火") ? tankIcon : hydrantIcon;
-            return (
-              <Marker key={item.id} position={[item.lat, item.lon]} icon={markerIcon}>
-                <Popup>
-                  <b>住所:</b> {item.address} <br />
-                  <b>種類:</b> {item.type}
-                </Popup>
-              </Marker>
-            );
-          })
-        ) : (
-          <p>⚠️ マーカーが1つもありません！</p>
-        )}
+        <AddMarkerOnClick mode={mode} setHydrants={setHydrants} />
+        {hydrants.map((item) => {
+          const markerIcon = item.type.includes("防火") ? tankIcon : hydrantIcon;
+          return (
+            <Marker
+              key={item.id}
+              position={[item.lat, item.lon]}
+              icon={markerIcon}
+              draggable={mode === "move"}
+              eventHandlers={{
+                dragend: (e) => {
+                  updateMarkerPosition(item.id, e.target.getLatLng().lat, e.target.getLatLng().lng);
+                },
+                click: () => handleMarkerClick(item.id),
+              }}
+            >
+              <Popup>
+                <b>住所:</b> {item.address} <br />
+                <b>種類:</b> {item.type} <br />
+                <b>点検:</b> {item.checked ? "✅ 済み" : "❌ 未点検"}
+              </Popup>
+            </Marker>
+          );
+        })}
 
         {/* 👤 現在地マーカー */}
         {userLocation && <Marker position={userLocation} icon={userIcon}><Popup>現在地</Popup></Marker>}
@@ -104,6 +140,25 @@ const MapView = () => {
         {/* 🔘 現在地に戻るボタン */}
         <CurrentLocationButton userLocation={userLocation} />
       </MapContainer>
+
+      {/* 🛠 モード切替ボタン */}
+      <button
+        onClick={() => setMode((prev) => (prev === "inspection" ? "move" : prev === "move" ? "edit" : "inspection"))}
+        style={{
+          position: "fixed",
+          top: "20px",
+          right: "20px",
+          backgroundColor: "#28a745",
+          color: "#fff",
+          padding: "10px 15px",
+          border: "none",
+          borderRadius: "5px",
+          cursor: "pointer",
+          zIndex: 1000,
+        }}
+      >
+        {mode === "inspection" ? "🔄 移動モード" : mode === "move" ? "➕ 追加削除モード" : "✅ 点検モード"}
+      </button>
 
       {/* 💾 保存ボタン */}
       <button
@@ -127,25 +182,17 @@ const MapView = () => {
   );
 };
 
-const CurrentLocationButton = ({ userLocation }) => {
-  const map = useMap();
-  return (
-    <button
-      onClick={() => userLocation && map.setView(userLocation, 16)}
-      style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        backgroundColor: "#007bff",
-        color: "#fff",
-        padding: "10px 15px",
-        borderRadius: "5px",
-        zIndex: 1000,
-      }}
-    >
-      現在地へ戻る
-    </button>
-  );
+// ✅ クリックで新しいマーカーを追加（追加削除モード）
+const AddMarkerOnClick = ({ mode, setHydrants }) => {
+  useMapEvents({
+    click(e) {
+      if (mode === "edit") {
+        const newId = `new-${Date.now()}`;
+        setHydrants((prev) => [...prev, { id: newId, lat: e.latlng.lat, lon: e.latlng.lng, type: "消火栓", address: "不明", checked: false }]);
+      }
+    },
+  });
+  return null;
 };
 
 export default MapView;
