@@ -4,7 +4,7 @@ import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
 import React, { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet"; // leafletのインポート
-
+import { useCallback } from "react"; 
 
 
 const MapClickHandler = ({ mode, setNewMarkerPosition, newMarkerPosition, deleteTarget }) => {
@@ -58,7 +58,7 @@ const MapView = () => {
       if (parsedData.length > 0) {
         console.log("📥 [DEBUG] ローカルストレージからデータをセット");
         setHydrants(parsedData);
-        setHydrantsLoaded(true);
+        const [hydrantsLoaded, setHydrantsLoaded] = useState(false);
       } else {
         fetchData();
       }
@@ -97,23 +97,23 @@ const MapView = () => {
     }
   
 
-  const fetchData = () => {
-    console.log("📡 [DEBUG] fetchData() 実行開始");
-    fetch("/.netlify/functions/get_hydrants")
-      .then((response) => {
-        console.log("📡 [DEBUG] APIレスポンス:", response);
-        return response.json();
-      })
-      .then((data) => {
-        console.log("📥 [DEBUG] 取得データ:", data);
-        if (data.length > 0) {
-          setHydrants(data);
-        } else {
-          console.warn("⚠ [WARN] 取得データが空 or 読み込めていない！");
-        }
-      })
-      .catch((error) => console.error("❌ [ERROR] API呼び出しエラー:", error));
-  };
+    const fetchData = useCallback(() => {
+      console.log("📡 [DEBUG] fetchData() 実行開始");
+      fetch("/.netlify/functions/get_hydrants")
+        .then((response) => {
+          console.log("📡 [DEBUG] APIレスポンス:", response);
+          return response.json();
+        })
+        .then((data) => {
+          console.log("📥 [DEBUG] 取得データ:", data);
+          if (data.length > 0) {
+            setHydrants(data);
+          } else {
+            console.warn("⚠ [WARN] 取得データが空 or 読み込めていない！");
+          }
+        })
+        .catch((error) => console.error("❌ [ERROR] API呼び出しエラー:", error));
+    }, [setHydrants]); // ✅ `useCallback` でラップ
   
   const saveHydrants = () => {
   fetch("/.netlify/functions/save_hydrants", {
@@ -159,7 +159,7 @@ const MapView = () => {
     return null;
   };
 
-  return (
+  return {(
     <div>
       {/* 🔥 現在地に戻るボタン（右下に配置） */}
       <div style={{ position: "absolute", bottom: "10px", right: "10px", zIndex: 1000 }}>
