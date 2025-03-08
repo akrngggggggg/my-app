@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -142,77 +142,55 @@ const MapView = () => {
 
         {/* 👤 現在地マーカー */}
         {userLocation && <Marker position={userLocation} icon={userIcon}><Popup>現在地</Popup></Marker>}
-
-        {/* 🔘 現在地に戻るボタン */}
-        <CurrentLocationButton userLocation={userLocation} />
       </MapContainer>
 
       {/* 🛠 モード切替ボタン */}
-      <button
-        onClick={toggleMode}
-        style={{
-          position: "fixed",
-          top: "20px",
-          right: "20px",
-          backgroundColor: "#28a745",
-          color: "#fff",
-          padding: "10px 15px",
-          borderRadius: "5px",
-          cursor: "pointer",
-          zIndex: 1000,
-        }}
-      >
+      <button onClick={toggleMode} style={buttonStyle("top", "right", "#28a745")}>
         {mode === "inspection" ? "🔄 移動モード" : mode === "move" ? "➕ 追加削除モード" : "✅ 点検モード"}
       </button>
 
       {/* 💾 保存ボタン */}
-      <button
-        onClick={() => saveToFirestore(hydrants)}
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          left: "20px",
-          backgroundColor: "#dc3545",
-          color: "#fff",
-          padding: "10px 15px",
-          borderRadius: "5px",
-          cursor: "pointer",
-          zIndex: 1000,
-        }}
-      >
+      <button onClick={() => saveToFirestore(hydrants)} style={buttonStyle("bottom", "left", "#dc3545")}>
         💾 保存
       </button>
     </div>
   );
 };
 
-// ✅ 現在地ボタンのコンポーネント
-const CurrentLocationButton = ({ userLocation }) => {
-  const map = useMap();
-  return (
-    <button
-      onClick={() => {
-        if (userLocation) {
-          map.setView(userLocation, 16);
-        } else {
-          alert("⚠️ 現在地を取得できませんでした");
+// ✅ 地図をクリックしてマーカーを追加するコンポーネント
+const AddMarkerOnClick = ({ mode, setHydrants }) => {
+  useMapEvents({
+    click(e) {
+      if (mode === "edit") {
+        const confirmAdd = window.confirm("📍 ここに新しいマーカーを追加しますか？");
+        if (confirmAdd) {
+          const newMarker = {
+            id: Date.now().toString(),
+            type: "公設消火栓",
+            address: "新規追加地点",
+            lat: e.latlng.lat,
+            lon: e.latlng.lng,
+            checked: false,
+          };
+          setHydrants((prev) => [...prev, newMarker]);
         }
-      }}
-      style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        backgroundColor: "#007bff",
-        color: "#fff",
-        padding: "10px 15px",
-        borderRadius: "5px",
-        cursor: "pointer",
-        zIndex: 1000,
-      }}
-    >
-      📍 現在地
-    </button>
-  );
+      }
+    },
+  });
+  return null;
 };
+
+// ✅ ボタンのスタイル関数
+const buttonStyle = (vAlign, hAlign, color) => ({
+  position: "fixed",
+  [vAlign]: "20px",
+  [hAlign]: "20px",
+  backgroundColor: color,
+  color: "#fff",
+  padding: "10px 15px",
+  borderRadius: "5px",
+  cursor: "pointer",
+  zIndex: 1000,
+});
 
 export default MapView;
