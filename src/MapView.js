@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -18,7 +18,7 @@ const saveToFirestore = async (hydrants) => {
   }
 };
 
-// 🔥 マーカー（消火栓・防火水槽）
+// 🔥 消火栓（赤）・防火水槽（青）のマーカー
 const hydrantIcon = L.divIcon({
   className: "custom-marker",
   html: '<div style="width:12px; height:12px; background-color:red; border-radius:50%; border:2px solid white;"></div>',
@@ -45,7 +45,21 @@ const MapView = () => {
 
   const [hydrants, setHydrants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
-  const [mode, setMode] = useState("inspection"); // "inspection" | "move" | "edit"
+
+  // ✅ Firestore からのデータ取得
+  useEffect(() => {
+    fetch("/.netlify/functions/get_hydrants")
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("📥 Firestore から取得したデータ:", data);
+        if (data && Array.isArray(data.data)) {
+          setHydrants(data.data); // 🚨 ここを `data.data` に変更
+        } else {
+          console.error("🚨 Firestore のデータが不正な形式:", data);
+        }
+      })
+      .catch((error) => console.error("❌ データ取得失敗:", error));
+  }, []);
 
   // ✅ 現在地の取得
   useEffect(() => {
@@ -59,21 +73,6 @@ const MapView = () => {
         }
       );
     }
-  }, []);
-
-  // ✅ 消火栓・防火水槽のデータ取得（初期マーカーの読み込み）
-  useEffect(() => {
-    fetch("/.netlify/functions/get_hydrants")
-      .then((response) => response.json())
-      .then((data) => {
-        console.log("📥 Firestore から取得したデータ:", data);
-        if (Array.isArray(data) && data.length > 0) {
-          setHydrants(data);
-        } else {
-          console.error("🚨 Firestore のデータが空、または不正な形式:", data);
-        }
-      })
-      .catch((error) => console.error("❌ データ取得失敗:", error));
   }, []);
 
   return (
@@ -96,7 +95,7 @@ const MapView = () => {
             );
           })
         ) : (
-          console.warn("⚠️ マーカーが1つもありません！")
+          <p>⚠️ マーカーが1つもありません！</p>
         )}
 
         {/* 👤 現在地マーカー */}
