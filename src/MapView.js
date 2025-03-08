@@ -73,24 +73,6 @@ const MapView = () => {
     }
   }, []);
 
-  // ✅ マーカーのクリック処理
-  const handleMarkerClick = (id) => {
-    if (mode === "inspection") {
-      // 🔥 点検モード（クリックで "checked" を切り替え）
-      setHydrants((prev) =>
-        prev.map((marker) =>
-          marker.id === id ? { ...marker, checked: !marker.checked } : marker
-        )
-      );
-    } else if (mode === "edit") {
-      // 🔥 追加削除モード（クリックで削除）
-      const confirmDelete = window.confirm("⚠️ このマーカーを削除しますか？");
-      if (confirmDelete) {
-        setHydrants((prev) => prev.filter((marker) => marker.id !== id));
-      }
-    }
-  };
-
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={defaultPosition} zoom={defaultZoom} style={{ height: "100vh", width: "100%" }}>
@@ -181,7 +163,38 @@ const MapView = () => {
   );
 };
 
-// ✅ マーカー追加コンポーネント
+// ✅ 現在地に戻るボタン（修正済み）
+const CurrentLocationButton = ({ userLocation }) => {
+  const map = useMap();
+
+  const handleClick = () => {
+    if (userLocation) {
+      map.setView(userLocation, 16);
+    } else {
+      alert("❌ 現在地情報が取得できていません");
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        backgroundColor: "#007bff",
+        color: "#fff",
+        padding: "10px 15px",
+        borderRadius: "5px",
+        zIndex: 1000,
+      }}
+    >
+      現在地へ戻る
+    </button>
+  );
+};
+
+// ✅ クリックで新しいマーカーを追加（追加削除モード）
 const AddMarkerOnClick = ({ mode, setHydrants }) => {
   useMapEvents({
     click(e) {
