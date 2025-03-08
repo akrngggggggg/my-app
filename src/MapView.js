@@ -1,9 +1,10 @@
+import L from "leaflet";  // ✅ 一番最初に Leaflet をインポート
 import "leaflet/dist/leaflet.css";
 import "leaflet-gesture-handling";
 import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
 
 const MapView = () => {
   const defaultPosition = [35.3933, 139.3072]; // 伊勢原市の中心座標
@@ -36,8 +37,11 @@ const MapView = () => {
 
   /** 🔥 初回マウント時の処理 */
   useEffect(() => {
+    if (!window.L) {
+      window.L = L;
+
     console.log("🔄 [DEBUG] useEffect() 実行: fetchData() を呼び出します！");
-    
+ 
     // ローカルストレージにデータがあれば取得
     const savedData = localStorage.getItem("fire_hydrants");
     if (savedData) {
@@ -82,8 +86,13 @@ const MapView = () => {
   return (
     <div style={{ position: "relative" }}>
       <MapContainer 
-       center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }} 
-       whenCreated={(map) => { mapRef.current = map; }}
+  center={mapCenter} 
+  zoom={mapZoom} 
+  style={{ height: "100vh", width: "100%" }}
+  whenCreated={(map) => {
+    mapRef.current = map;
+    map.gestureHandling.enable(); // ✅ Gesture Handling を有効化
+  }}
 >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
