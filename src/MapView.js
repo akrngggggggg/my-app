@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -11,7 +11,7 @@ const saveToFirestore = async (hydrants) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data: hydrants }),
     });
-    alert("✅ 保存完了！"); // 成功時
+    alert("✅ 保存完了！");
   } catch (error) {
     alert("❌ 保存に失敗しました");
     console.error("❌ Firestore 保存エラー:", error);
