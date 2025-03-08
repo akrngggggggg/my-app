@@ -5,23 +5,23 @@ import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
 import React, { useState, useEffect, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 
-// 🔥 カスタムアイコン
+// 🔥 カスタムアイコン（現在地・消火栓・防火水槽）
 const userIcon = new L.Icon({
-  iconUrl: "https://maps.google.com/mapfiles/ms/icons/lightblue-dot.png", // 水色マーカー（現在地）
+  iconUrl: "https://maps.google.com/mapfiles/ms/icons/lightblue-dot.png", // 水色（現在地）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
 });
 
-const redIcon = new L.Icon({
-  iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png", // 赤マーカー（消火栓）
+const hydrantIcon = new L.Icon({
+  iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png", // 赤（消火栓）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
 });
 
-const blueIcon = new L.Icon({
-  iconUrl: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png", // 青マーカー（防火水槽）
+const tankIcon = new L.Icon({
+  iconUrl: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png", // 青（防火水槽）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
@@ -31,13 +31,12 @@ const MapView = () => {
   const defaultPosition = [35.3933, 139.3072]; // 伊勢原市の中心座標
   const defaultZoom = 16;
 
-  // 🔥 必要な `useState` 変数を定義（エラー修正）
   const [hydrants, setHydrants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState(defaultPosition);
   const [mapZoom, setMapZoom] = useState(defaultZoom);
-  const [mode, setMode] = useState("inspection"); // 🔥 点検/編集モード
-  const [showModeMenu, setShowModeMenu] = useState(false); // 🔥 モード切替メニューの表示
+  const [mode, setMode] = useState("inspection"); // 🔥 点検 / 編集モード
+  const [showModeMenu, setShowModeMenu] = useState(false);
 
   /** 🔥 データ取得処理 */
   const fetchData = useCallback(() => {
@@ -54,11 +53,10 @@ const MapView = () => {
         }
       })
       .catch((error) => console.error("❌ [ERROR] API呼び出しエラー:", error));
-  }, [setHydrants]);
+  }, []);
 
   /** 🔥 初回マウント時の処理 */
   useEffect(() => {
-    console.log("🔄 [DEBUG] useEffect() 実行: fetchData() を呼び出します！");
     fetchData();
 
     if (navigator.geolocation) {
@@ -71,7 +69,7 @@ const MapView = () => {
         }
       );
     }
-  }, [fetchData])
+  }, [fetchData]);
 
   /** 🔥 現在地に戻る */
   const moveToCurrentLocation = () => {
@@ -93,12 +91,6 @@ const MapView = () => {
     setShowModeMenu(false);
   };
 
-  /** 🔥 保存ボタンの処理（仮のアクション） */
-  const saveData = () => {
-    console.log("💾 データを保存しました！（実装は後で追加）");
-    alert("データを保存しました！");
-  };
- 
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }}>
@@ -116,34 +108,15 @@ const MapView = () => {
           <Marker 
             key={item.id} 
             position={[item.lat, item.lon]} 
-            icon={item.type === "防火水槽" ? blueIcon : redIcon} // 防火水槽なら青、それ以外（消火栓）は赤
+            icon={item.type === "防火水槽" ? tankIcon : hydrantIcon} 
           >
             <Popup>
-              <b>種類:</b> {item.type} <br />
-              <b>ID:</b> {item.id}
+              <b>住所:</b> {item.address} <br />
+              <b>種類:</b> {item.type} 
             </Popup>
           </Marker>
         ))}
       </MapContainer>
-
-      {/* 🔘 モード切替ボタン（右上固定） */}
-      <button
-        onClick={toggleModeMenu}
-        style={{
-          position: "fixed",
-          top: "20px",
-          right: "20px",
-          backgroundColor: "#28a745",
-          color: "#fff",
-          padding: "10px 15px",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-          zIndex: 1000,
-        }}
-      >
-        モード切替
-      </button>
 
       {/* 🔘 現在地に戻るボタン（右下固定） */}
       <button
@@ -164,14 +137,14 @@ const MapView = () => {
         現在地へ戻る
       </button>
 
-      {/* 💾 保存ボタン（左下固定） */}
+      {/* 🔘 モード切替ボタン（右上固定） */}
       <button
-        onClick={saveData}
+        onClick={toggleModeMenu}
         style={{
           position: "fixed",
-          bottom: "20px",
-          left: "20px",
-          backgroundColor: "#dc3545",
+          top: "20px",
+          right: "20px",
+          backgroundColor: "#28a745",
           color: "#fff",
           padding: "10px 15px",
           border: "none",
@@ -180,10 +153,10 @@ const MapView = () => {
           zIndex: 1000,
         }}
       >
-        保存
+        モード切替
       </button>
 
-      {/* 🔽 モード選択メニュー（モード切替ボタンの下に表示） */}
+      {/* 🔽 モード選択メニュー */}
       {showModeMenu && (
         <div
           style={{
