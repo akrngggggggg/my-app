@@ -5,22 +5,30 @@ import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
 import React, { useState, useEffect, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 
+// 🔥 Leaflet マーカーアイコンの設定（デフォルトマーカーを無効にする）
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: null,
+  iconUrl: null,
+  shadowUrl: null,
+});
+
 // 🔥 カスタムアイコンの設定
-const userIcon = L.icon({
+const userIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/lightblue-dot.png", // 水色（現在地）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
 });
 
-const hydrantIcon = L.icon({
+const hydrantIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png", // 赤（消火栓）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
 });
 
-const tankIcon = L.icon({
+const tankIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png", // 青（防火水槽）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
