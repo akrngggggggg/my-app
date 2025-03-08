@@ -81,7 +81,7 @@ const MapView = () => {
   const changeMode = (newMode) => {
     setMode(newMode);
     setShowModeMenu(false);
-  };
+  }
 
   return (
     <div style={{ position: "relative" }}>
