@@ -81,7 +81,10 @@ const MapView = () => {
 
   return (
     <div style={{ position: "relative" }}>
-      <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }}>
+      <MapContainer 
+       center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }} 
+       whenCreated={(map) => { mapRef.current = map; }}
+>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         {/* 🔵 ユーザーの現在地をマーカーで表示 */}
