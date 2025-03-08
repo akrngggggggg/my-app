@@ -18,16 +18,21 @@ exports.handler = async function () {
     const doc = await collection.doc("hydrants_data").get();
 
     if (!doc.exists) {
-      console.log("⚠ [WARN] Firestore に `hydrants_data` が存在しない");
+      console.log("⚠ [WARN] Firestore に `hydrants_data` が存在しない（データがない）");
       return { statusCode: 404, body: JSON.stringify({ error: "データが見つかりません" }) };
     }
 
-    const fetchedData = doc.data().data;
-    console.log("✅ [SUCCESS] Firestore からデータを取得:", JSON.stringify(fetchedData));
+    const fetchedData = doc.data();
+    console.log("✅ [SUCCESS] Firestore から取得したデータ:", JSON.stringify(fetchedData));
+
+    if (!fetchedData.data) {
+      console.log("⚠ [WARN] `data` フィールドが存在しない！");
+      return { statusCode: 500, body: JSON.stringify({ error: "`data` フィールドが存在しません！" }) };
+    }
 
     return {
       statusCode: 200,
-      body: JSON.stringify(fetchedData),
+      body: JSON.stringify(fetchedData.data),
     };
   } catch (error) {
     console.error("❌ [ERROR] Firestore 取得エラー:", error);
