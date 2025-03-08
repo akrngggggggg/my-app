@@ -75,9 +75,14 @@ const MapView = () => {
 
   // ✅ マーカーをドラッグして移動する（移動モード）
   const updateMarkerPosition = (id, newLat, newLon) => {
-    setHydrants((prev) =>
-      prev.map((marker) => (marker.id === id ? { ...marker, lat: newLat, lon: newLon } : marker))
-    );
+    if (mode === "move") {
+      const confirmMove = window.confirm("📌 マーカーの位置を変更しますか？");
+      if (!confirmMove) return;
+
+      setHydrants((prev) =>
+        prev.map((marker) => (marker.id === id ? { ...marker, lat: newLat, lon: newLon } : marker))
+      );
+    }
   };
 
   return (
@@ -98,13 +103,14 @@ const MapView = () => {
               draggable={mode === "move"} // 移動モードならドラッグ可能
               eventHandlers={{
                 dragend: (e) => {
-                  if (mode === "move") {
-                    updateMarkerPosition(item.id, e.target.getLatLng().lat, e.target.getLatLng().lng);
-                  }
+                  updateMarkerPosition(item.id, e.target.getLatLng().lat, e.target.getLatLng().lng);
                 },
                 click: () => {
                   if (mode === "edit") {
-                    setHydrants((prev) => prev.filter((marker) => marker.id !== item.id));
+                    const confirmDelete = window.confirm("⚠️ このマーカーを削除しますか？");
+                    if (confirmDelete) {
+                      setHydrants((prev) => prev.filter((marker) => marker.id !== item.id));
+                    }
                   }
                 },
               }}
@@ -112,7 +118,6 @@ const MapView = () => {
               <Popup>
                 <b>住所:</b> {item.address} <br />
                 <b>種類:</b> {item.type}
-                {mode === "edit" && <button onClick={() => setHydrants((prev) => prev.filter((m) => m.id !== item.id))}>削除</button>}
               </Popup>
             </Marker>
           );
@@ -171,6 +176,9 @@ const AddMarkerOnClick = ({ mode, setHydrants }) => {
   useMapEvents({
     click(e) {
       if (mode === "edit") {
+        const confirmAdd = window.confirm("➕ この位置にマーカーを追加しますか？");
+        if (!confirmAdd) return;
+
         const newId = `new-${Date.now()}`;
         setHydrants((prev) => [
           ...prev,
