@@ -23,7 +23,7 @@ const userIcon = L.divIcon({
 });
 
 const MapView = () => {
-  const defaultPosition = [35.3933, 139.3072]; // 伊勢原市
+  const defaultPosition = [35.3933, 139.3072]; // 初期位置（伊勢原市）
   const defaultZoom = 16;
 
   const [hydrants, setHydrants] = useState([]);
@@ -45,7 +45,7 @@ const MapView = () => {
     }
   }, []);
 
-  // ✅ データ取得
+  // ✅ 消火栓・防火水槽のデータ取得
   useEffect(() => {
     fetch("/.netlify/functions/get_hydrants")
       .then((response) => response.json())
