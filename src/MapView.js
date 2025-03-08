@@ -63,7 +63,7 @@ const MapView = () => {
       fetchData();
 
     const map = L.map("map", {
-        center: [35.3846487, 139.3220111], // 伊勢原市の座標
+        center: [35.3846487, 139.322011], // 伊勢原市の座標
         zoom: 15,
         gestureHandling: true, // ← 追加！
 
@@ -71,7 +71,7 @@ const MapView = () => {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         }).addTo(mapRef.current);
       }
-      
+
       });   
     }
 
