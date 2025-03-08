@@ -45,6 +45,8 @@ const MapView = () => {
   const [returnFlag, setReturnFlag] = useState(false);  // 現在地に戻るフラグ
 
   useEffect(() => {
+    console.log("🔄 [DEBUG] useEffect() 実行: fetchData() を呼び出します！");
+    fetchData();
     const savedData = localStorage.getItem("fire_hydrants");
     if (savedData) {
       const parsedData = JSON.parse(savedData);
@@ -71,14 +73,21 @@ const MapView = () => {
   }, []);
 
   const fetchData = () => {
+    console.log("📡 [DEBUG] fetchData() 実行開始");
     fetch("/.netlify/functions/get_hydrants")
-      .then((response) => response.json())
+      .then((response) => {
+        console.log("📡 [DEBUG] APIレスポンス:", response);
+        return response.json();
+      })
       .then((data) => {
+        console.log("📥 [DEBUG] 取得データ:", data);
         if (data.length > 0) {
           setHydrants(data);
+        } else {
+          console.warn("⚠ [WARN] 取得データが空 or 読み込めていない！");
         }
       })
-      .catch((error) => console.error("データ取得失敗:", error));
+      .catch((error) => console.error("❌ [ERROR] API呼び出しエラー:", error));
   };
   
   const saveHydrants = () => {
