@@ -182,4 +182,16 @@ const AddMarkerOnClick = ({ mode, setHydrants }) => {
   return null;
 };
 
+// ✅ ボタンスタイル関数 (エラー修正)
+const buttonStyle = (topOrBottom, leftOrRight, bgColor) => ({
+  position: "absolute",
+  [topOrBottom]: "10px",
+  [leftOrRight]: "10px",
+  padding: "10px",
+  backgroundColor: bgColor,
+  color: "white",
+  border: "none",
+  cursor: "pointer",
+});
+
 export default MapView;
