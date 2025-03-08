@@ -2,19 +2,39 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-gesture-handling";
 import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+
+// 🔥 カスタムアイコン
+const userIcon = new L.Icon({
+  iconUrl: "https://maps.google.com/mapfiles/ms/icons/lightblue-dot.png", // 水色マーカー（現在地）
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32],
+});
+
+const hydrantIcon = new L.Icon({
+  iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png", // 赤マーカー（消火栓）
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32],
+});
+
+const tankIcon = new L.Icon({
+  iconUrl: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png", // 青マーカー（防火水槽）
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32],
+});
 
 const MapView = () => {
   const defaultPosition = [35.3933, 139.3072]; // 伊勢原市の中心座標
   const defaultZoom = 16;
-  
+
   const [hydrants, setHydrants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState(defaultPosition);
   const [mapZoom, setMapZoom] = useState(defaultZoom);
-  const [mode, setMode] = useState("inspection"); 
-  const [showModeMenu, setShowModeMenu] = useState(false);
 
   /** 🔥 データ取得処理 */
   const fetchData = useCallback(() => {
@@ -60,7 +80,7 @@ const MapView = () => {
     }
   };
 
-  /** 🔥 モード切り替え */
+  /** 🔥 モード切替 */
   const toggleModeMenu = () => {
     setShowModeMenu(!showModeMenu);
   };
@@ -70,27 +90,27 @@ const MapView = () => {
     setShowModeMenu(false);
   };
 
+  /** 🔥 保存ボタンの処理（仮のアクション） */
+  const saveData = () => {
+    console.log("💾 データを保存しました！（実装は後で追加）");
+    alert("データを保存しました！");
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-        {/* 🔵 ユーザーの現在地をマーカーで表示 */}
+        {/* 🔵 ユーザーの現在地マーカー（青） */}
         {userLocation && (
-          <Marker position={userLocation} icon={new L.Icon({
-            iconUrl: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-            iconSize: [32, 32]
-          })}>
+          <Marker position={userLocation} icon={blueIcon}>
             <Popup>現在地</Popup>
           </Marker>
         )}
 
-        {/* 🔥 消火栓データの表示 */}
+        {/* 🔥 消火栓データの表示（赤） */}
         {hydrants.map((hydrant) => (
-          <Marker key={hydrant.id} position={[hydrant.lat, hydrant.lon]} icon={new L.Icon({
-            iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
-            iconSize: [32, 32]
-          })}>
+          <Marker key={hydrant.id} position={[hydrant.lat, hydrant.lon]} icon={redIcon}>
             <Popup>
               <b>種類:</b> {hydrant.type} <br />
               <b>ID:</b> {hydrant.id}
@@ -99,11 +119,30 @@ const MapView = () => {
         ))}
       </MapContainer>
 
-      {/* 🔘 現在地に戻るボタン */}
+      {/* 🔘 モード切替ボタン（右上固定） */}
+      <button
+        onClick={toggleModeMenu}
+        style={{
+          position: "fixed",
+          top: "20px",
+          right: "20px",
+          backgroundColor: "#28a745",
+          color: "#fff",
+          padding: "10px 15px",
+          border: "none",
+          borderRadius: "5px",
+          cursor: "pointer",
+          zIndex: 1000,
+        }}
+      >
+        モード切替
+      </button>
+
+      {/* 🔘 現在地に戻るボタン（右下固定） */}
       <button
         onClick={moveToCurrentLocation}
         style={{
-          position: "absolute",
+          position: "fixed",
           bottom: "20px",
           right: "20px",
           backgroundColor: "#007bff",
@@ -112,40 +151,43 @@ const MapView = () => {
           border: "none",
           borderRadius: "5px",
           cursor: "pointer",
+          zIndex: 1000,
         }}
       >
         現在地へ戻る
       </button>
 
-      {/* 🔘 モード切り替えボタン */}
+      {/* 💾 保存ボタン（左下固定） */}
       <button
-        onClick={toggleModeMenu}
+        onClick={saveData}
         style={{
-          position: "absolute",
-          bottom: "70px",
-          right: "20px",
-          backgroundColor: "#28a745",
+          position: "fixed",
+          bottom: "20px",
+          left: "20px",
+          backgroundColor: "#dc3545",
           color: "#fff",
           padding: "10px 15px",
           border: "none",
           borderRadius: "5px",
           cursor: "pointer",
+          zIndex: 1000,
         }}
       >
-        モード切替
+        保存
       </button>
 
-      {/* 🔽 モード選択メニュー */}
+      {/* 🔽 モード選択メニュー（モード切替ボタンの下に表示） */}
       {showModeMenu && (
         <div
           style={{
-            position: "absolute",
-            bottom: "120px",
+            position: "fixed",
+            top: "70px",
             right: "20px",
             backgroundColor: "#fff",
             padding: "10px",
             borderRadius: "5px",
             boxShadow: "0px 2px 10px rgba(0,0,0,0.2)",
+            zIndex: 1000,
           }}
         >
           <p>現在のモード: <b>{mode === "inspection" ? "点検" : "編集"}</b></p>
