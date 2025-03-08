@@ -1,10 +1,9 @@
-import "leaflet/dist/leaflet.css"; // これでleafletのスタイルをインポート
+import "leaflet/dist/leaflet.css";
 import "leaflet-gesture-handling";
 import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
-import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
-import L from "leaflet"; // leafletのインポート
-import { useCallback } from "react"; 
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
 
 
 const MapClickHandler = ({ mode, setNewMarkerPosition, newMarkerPosition, deleteTarget }) => {
@@ -27,10 +26,10 @@ const MapView = () => {
   const defaultPosition = [35.3933, 139.3072]; // 初期位置（伊勢原市）
   const defaultZoom = 16;  // 所定のズームレベル
   const mapRef = useRef(null); // ← ここで map の参照を作る
-  const [hydrantsLoaded, setHydrantsLoaded] = useState(false);
   const [hydrants, setHydrants] = useState([]);
-  const [mode, setMode] = useState("inspection");
-  const [showModeMenu, setShowModeMenu] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [mapCenter, setMapCenter] = useState(defaultPosition);
+  const [mapZoom, setMapZoom] = useState(defaultZoom);
 
   const handleModeChange = (newMode) => {
     setMode(newMode);
@@ -48,8 +47,38 @@ const MapView = () => {
   const [mapZoom, setMapZoom] = useState(defaultZoom);  // ズームレベルを管理するstate
   const [returnFlag, setReturnFlag] = useState(false);  // 現在地に戻るフラグ
 
+  const fetchData = useCallback(() => {
+    console.log("📡 [DEBUG] fetchData() 実行開始");
+    fetch("/.netlify/functions/get_hydrants")
+      .then((response) => {
+        console.log("📡 [DEBUG] APIレスポンス:", response);
+        return response.json();
+      })
+      .then((data) => {
+        console.log("📥 [DEBUG] 取得データ:", data);
+        if (data.length > 0) {
+          setHydrants(data);
+        } else {
+          console.warn("⚠ [WARN] 取得データが空 or 読み込めていない！");
+        }
+      })
+      .catch((error) => console.error("❌ [ERROR] API呼び出しエラー:", error));
+  }, [setHydrants]); // ✅ `useCallback` でラップ
+
   useEffect(() => {
     console.log("🔄 [DEBUG] useEffect() 実行: fetchData() を呼び出します！");
+    fetchData();
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation([position.coords.latitude, position.coords.longitude]);
+        },
+        (error) => {
+          console.error("位置情報の取得に失敗:", error);
+        }
+      );
+    }
 
     // 1️⃣ データを localStorage から取得
     const savedData = localStorage.getItem("fire_hydrants");
@@ -104,23 +133,7 @@ const MapView = () => {
     }
   
 
-    const fetchData = useCallback(() => {
-      console.log("📡 [DEBUG] fetchData() 実行開始");
-      fetch("/.netlify/functions/get_hydrants")
-        .then((response) => {
-          console.log("📡 [DEBUG] APIレスポンス:", response);
-          return response.json();
-        })
-        .then((data) => {
-          console.log("📥 [DEBUG] 取得データ:", data);
-          if (data.length > 0) {
-            setHydrants(data);
-          } else {
-            console.warn("⚠ [WARN] 取得データが空 or 読み込めていない！");
-          }
-        })
-        .catch((error) => console.error("❌ [ERROR] API呼び出しエラー:", error));
-    }, [setHydrants]); // ✅ `useCallback` でラップ
+
   
   const saveHydrants = () => {
   fetch("/.netlify/functions/save_hydrants", {
@@ -166,8 +179,7 @@ const MapView = () => {
     return null;
   };
 
-  return (
-    <div>
+      <div>
       {/* 🔥 現在地に戻るボタン（右下に配置） */}
       <div style={{ position: "absolute", bottom: "10px", right: "10px", zIndex: 1000 }}>
         <button 
