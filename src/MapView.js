@@ -73,19 +73,62 @@ const MapView = () => {
     }
   }, []);
 
+  // ✅ マーカーのクリック処理
+  const handleMarkerClick = (id) => {
+    if (mode === "inspection") {
+      // 🔥 点検モード（クリックで "checked" を切り替え）
+      setHydrants((prev) =>
+        prev.map((marker) =>
+          marker.id === id ? { ...marker, checked: !marker.checked } : marker
+        )
+      );
+    } else if (mode === "edit") {
+      // 🔥 追加削除モード（クリックで削除）
+      const confirmDelete = window.confirm("⚠️ このマーカーを削除しますか？");
+      if (confirmDelete) {
+        setHydrants((prev) => prev.filter((marker) => marker.id !== id));
+      }
+    }
+  };
+
+  // ✅ マーカーを移動（移動モード）
+  const updateMarkerPosition = (id, newLat, newLon) => {
+    if (mode === "move") {
+      const confirmMove = window.confirm("📌 マーカーの位置を変更しますか？");
+      if (confirmMove) {
+        setHydrants((prev) =>
+          prev.map((marker) => (marker.id === id ? { ...marker, lat: newLat, lon: newLon } : marker))
+        );
+      }
+    }
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={defaultPosition} zoom={defaultZoom} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         {/* 🔥 初期マーカー表示 */}
+        <AddMarkerOnClick mode={mode} setHydrants={setHydrants} />
         {hydrants.map((item) => {
           const markerIcon = item.type.includes("防火") ? tankIcon : hydrantIcon;
           return (
-            <Marker key={item.id} position={[item.lat, item.lon]} icon={markerIcon}>
+            <Marker
+              key={item.id}
+              position={[item.lat, item.lon]}
+              icon={markerIcon}
+              draggable={mode === "move"}
+              eventHandlers={{
+                dragend: (e) => {
+                  updateMarkerPosition(item.id, e.target.getLatLng().lat, e.target.getLatLng().lng);
+                },
+                click: () => handleMarkerClick(item.id),
+              }}
+            >
               <Popup>
                 <b>住所:</b> {item.address} <br />
-                <b>種類:</b> {item.type}
+                <b>種類:</b> {item.type} <br />
+                <b>点検:</b> {item.checked ? "✅ 済み" : "❌ 未点検"}
               </Popup>
             </Marker>
           );
@@ -97,6 +140,25 @@ const MapView = () => {
         {/* 🔘 現在地に戻るボタン */}
         <CurrentLocationButton userLocation={userLocation} />
       </MapContainer>
+
+      {/* 🛠 モード切替ボタン */}
+      <button
+        onClick={() => setMode((prev) => (prev === "inspection" ? "move" : prev === "move" ? "edit" : "inspection"))}
+        style={{
+          position: "fixed",
+          top: "20px",
+          right: "20px",
+          backgroundColor: "#28a745",
+          color: "#fff",
+          padding: "10px 15px",
+          border: "none",
+          borderRadius: "5px",
+          cursor: "pointer",
+          zIndex: 1000,
+        }}
+      >
+        {mode === "inspection" ? "🔄 移動モード" : mode === "move" ? "➕ 追加削除モード" : "✅ 点検モード"}
+      </button>
 
       {/* 💾 保存ボタン */}
       <button
@@ -117,37 +179,6 @@ const MapView = () => {
         保存
       </button>
     </div>
-  );
-};
-
-// ✅ 現在地に戻るボタン（修正済み）
-const CurrentLocationButton = ({ userLocation }) => {
-  const map = useMap();
-
-  const handleClick = () => {
-    if (userLocation) {
-      map.setView(userLocation, 16);
-    } else {
-      alert("❌ 現在地情報が取得できていません");
-    }
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        backgroundColor: "#007bff",
-        color: "#fff",
-        padding: "10px 15px",
-        borderRadius: "5px",
-        zIndex: 1000,
-      }}
-    >
-      現在地へ戻る
-    </button>
   );
 };
 
