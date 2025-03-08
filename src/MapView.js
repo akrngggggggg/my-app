@@ -61,7 +61,7 @@ const MapView = () => {
     } else {
       fetchData();
 
-    const map = L.map("map", {
+    const _map = L.map("map", {
         center: [35.3846487, 139.3220111], // 伊勢原市の座標
         zoom: 15,
         gestureHandling: true, // ← 追加！
