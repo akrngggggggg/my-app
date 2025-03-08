@@ -299,7 +299,7 @@ const MapView = () => {
         )}
       </MapContainer>
     </div>
-  );
+  
 
 
 export default MapView;
