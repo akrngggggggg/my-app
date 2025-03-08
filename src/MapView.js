@@ -76,14 +76,12 @@ const MapView = () => {
   // ✅ マーカークリック処理（エラー解消）
   const handleMarkerClick = (id) => {
     if (mode === "inspection") {
-      // 🔥 点検モード（クリックで "checked" を切り替え）
       setHydrants((prev) =>
         prev.map((marker) =>
           marker.id === id ? { ...marker, checked: !marker.checked } : marker
         )
       );
     } else if (mode === "edit") {
-      // 🔥 追加削除モード（クリックで削除）
       const confirmDelete = window.confirm("⚠️ このマーカーを削除しますか？");
       if (confirmDelete) {
         setHydrants((prev) => prev.filter((marker) => marker.id !== id));
@@ -136,48 +134,41 @@ const MapView = () => {
         {/* 👤 現在地マーカー */}
         {userLocation && <Marker position={userLocation} icon={userIcon}><Popup>現在地</Popup></Marker>}
 
-        {/* 🔘 現在地に戻るボタン */}
+        {/* 🔘 現在地に戻るボタン（修正済み）*/}
         <CurrentLocationButton userLocation={userLocation} />
       </MapContainer>
-
-      {/* 🛠 モード切替ボタン */}
-      <button
-        onClick={() => setMode((prev) => (prev === "inspection" ? "move" : prev === "move" ? "edit" : "inspection"))}
-        style={{
-          position: "fixed",
-          top: "20px",
-          right: "20px",
-          backgroundColor: "#28a745",
-          color: "#fff",
-          padding: "10px 15px",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-          zIndex: 1000,
-        }}
-      >
-        {mode === "inspection" ? "🔄 移動モード" : mode === "move" ? "➕ 追加削除モード" : "✅ 点検モード"}
-      </button>
-
-      {/* 💾 保存ボタン */}
-      <button
-        onClick={() => saveToFirestore(hydrants)}
-        style={{
-          position: "fixed",
-          bottom: "20px",
-          left: "20px",
-          backgroundColor: "#dc3545",
-          color: "#fff",
-          padding: "10px 15px",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-          zIndex: 1000,
-        }}
-      >
-        保存
-      </button>
     </div>
+  );
+};
+
+// ✅ 現在地に戻るボタン（修正済み）
+const CurrentLocationButton = ({ userLocation }) => {
+  const map = useMap();
+
+  const handleClick = () => {
+    if (userLocation) {
+      map.setView(userLocation, 16);
+    } else {
+      alert("❌ 現在地情報が取得できていません");
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      style={{
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        backgroundColor: "#007bff",
+        color: "#fff",
+        padding: "10px 15px",
+        borderRadius: "5px",
+        zIndex: 1000,
+      }}
+    >
+      現在地へ戻る
+    </button>
   );
 };
 
