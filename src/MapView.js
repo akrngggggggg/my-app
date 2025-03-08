@@ -98,17 +98,7 @@ const MapView = () => {
     console.log("💾 データを保存しました！（実装は後で追加）");
     alert("データを保存しました！");
   };
-
-  /** 🔥 現在地に戻る */
-  const moveToCurrentLocation = () => {
-    if (userLocation) {
-      setMapCenter(userLocation);
-      setMapZoom(16);
-    } else {
-      alert("現在地が取得できませんでした");
-    }
-  };
-
+ 
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }}>
