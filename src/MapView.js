@@ -186,4 +186,17 @@ const MapView = () => {
   );
 };
 
+// ✅ `AddMarkerOnClick` の定義
+const AddMarkerOnClick = ({ mode, setHydrants }) => {
+  useMapEvents({
+    click(e) {
+      if (mode === "edit") {
+        const newId = `new-${Date.now()}`;
+        setHydrants((prev) => [...prev, { id: newId, lat: e.latlng.lat, lon: e.latlng.lng, type: "消火栓", address: "不明", checked: false }]);
+      }
+    },
+  });
+  return null;
+};
+
 export default MapView;
