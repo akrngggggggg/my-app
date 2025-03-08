@@ -26,6 +26,7 @@ const MapClickHandler = ({ mode, setNewMarkerPosition, newMarkerPosition, delete
 const MapView = () => {
   const defaultPosition = [35.3933, 139.3072]; // 初期位置（伊勢原市）
   const defaultZoom = 16;  // 所定のズームレベル
+  const mapRef = useRef(null); // ← ここで map の参照を作る
 
   const [hydrants, setHydrants] = useState([]);
   const [mode, setMode] = useState("inspection");
@@ -61,10 +62,16 @@ const MapView = () => {
     } else {
       fetchData();
 
-    const _map = L.map("map", {
+    const map = L.map("map", {
         center: [35.3846487, 139.3220111], // 伊勢原市の座標
         zoom: 15,
         gestureHandling: true, // ← 追加！
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        }).addTo(mapRef.current);
+      }
+      
       });   
     }
 
