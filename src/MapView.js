@@ -61,7 +61,7 @@ const MapView = () => {
         }
       );
     }
-  }, [fetchData]);
+  } [fetchData];
 
   /** 🔥 現在地に戻る */
   const moveToCurrentLocation = () => {
