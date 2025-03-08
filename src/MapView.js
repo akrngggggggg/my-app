@@ -186,33 +186,22 @@ const MapView = () => {
   );
 };
 
-// ✅ 現在地に戻るボタンの定義
-const CurrentLocationButton = ({ userLocation }) => {
-  const map = useMap();
-  return (
-    <button
-      onClick={() => {
-        if (userLocation) {
-          map.setView(userLocation, 16);
-        } else {
-          alert("❌ 現在地が取得できませんでした");
+// ✅ マップをクリックしてマーカーを追加
+const AddMarkerOnClick = ({ mode, setHydrants }) => {
+  useMapEvents({
+    click(e) {
+      if (mode === "edit") {
+        const confirmAdd = window.confirm("📌 ここにマーカーを追加しますか？");
+        if (confirmAdd) {
+          setHydrants((prev) => [
+            ...prev,
+            { id: Date.now().toString(), type: "新規消火栓", lat: e.latlng.lat, lon: e.latlng.lng, checked: false },
+          ]);
         }
-      }}
-      style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        backgroundColor: "#007bff",
-        color: "#fff",
-        padding: "10px 15px",
-        borderRadius: "5px",
-        cursor: "pointer",
-        zIndex: 1000,
-      }}
-    >
-      📍 現在地
-    </button>
-  );
+      }
+    },
+  });
+  return null;
 };
 
 export default MapView;
