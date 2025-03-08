@@ -50,30 +50,39 @@ const MapView = () => {
 
   useEffect(() => {
     console.log("🔄 [DEBUG] useEffect() 実行: fetchData() を呼び出します！");
-    fetchData();
+
+    // 1️⃣ データを localStorage から取得
     const savedData = localStorage.getItem("fire_hydrants");
     if (savedData) {
       const parsedData = JSON.parse(savedData);
       if (parsedData.length > 0) {
+        console.log("📥 [DEBUG] ローカルストレージからデータをセット");
         setHydrants(parsedData);
+        setHydrantsLoaded(true);
       } else {
         fetchData();
       }
     } else {
       fetchData();
+    }
 
-    const map = L.map("map", {
-        center: [35.3846487, 139.322011], // 伊勢原市の座標
+    // 2️⃣ Leaflet マップの初期化（mapRef が未設定なら）
+    if (!mapRef.current) {
+      mapRef.current = L.map("map", {
+        center: [35.3846487, 139.3220111], // 伊勢原市の座標
         zoom: 15,
         gestureHandling: true, // ← 追加！
+      });
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        }).addTo(mapRef.current);
-      }
-
-      });   
+      // 📌 タイルレイヤーを正しく追加！
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(mapRef.current);
     }
+  }, [fetchData, setHydrants]); // 依存関係を適切に設定
+
+  return <div id="map" style={{ width: "100%", height: "100vh" }} />;
+};
 
     // 🔥 現在地の取得
     if (navigator.geolocation) {
