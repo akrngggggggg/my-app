@@ -27,7 +27,7 @@ const MapView = () => {
   const defaultPosition = [35.3933, 139.3072]; // 初期位置（伊勢原市）
   const defaultZoom = 16;  // 所定のズームレベル
   const mapRef = useRef(null); // ← ここで map の参照を作る
-
+  const [hydrantsLoaded, setHydrantsLoaded] = useState(false);
   const [hydrants, setHydrants] = useState([]);
   const [mode, setMode] = useState("inspection");
   const [showModeMenu, setShowModeMenu] = useState(false);
@@ -58,7 +58,7 @@ const MapView = () => {
       if (parsedData.length > 0) {
         console.log("📥 [DEBUG] ローカルストレージからデータをセット");
         setHydrants(parsedData);
-        const [hydrantsLoaded, setHydrantsLoaded] = useState(false);
+        setHydrantsLoaded(true);
       } else {
         fetchData();
       }
@@ -81,7 +81,14 @@ const MapView = () => {
     }
   }, [fetchData, setHydrants]); // 依存関係を適切に設定
 
-  return <div id="map" style={{ width: "100%", height: "100vh" }} />;
+  return (
+    <div id="map" style={{ width: "100%", height: "100vh" }}>
+      {/* 🔥 追加でボタンを表示する場合 */}
+      <div style={{ position: "absolute", bottom: "10px", right: "10px", zIndex: 1000 }}>
+        <button onClick={() => console.log("現在地に戻る")}>現在地</button>
+      </div>
+    </div>
+  );
 };
 
     // 🔥 現在地の取得
@@ -159,7 +166,7 @@ const MapView = () => {
     return null;
   };
 
-  return {(
+  return (
     <div>
       {/* 🔥 現在地に戻るボタン（右下に配置） */}
       <div style={{ position: "absolute", bottom: "10px", right: "10px", zIndex: 1000 }}>
@@ -336,7 +343,7 @@ const MapView = () => {
       </MapContainer>
     </div>
   );
-};
+
 
 export default MapView;
 
