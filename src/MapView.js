@@ -1,7 +1,10 @@
 import "leaflet/dist/leaflet.css"; // これでleafletのスタイルをインポート
+import "leaflet-gesture-handling";
+import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
 import React, { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet"; // leafletのインポート
+
 
 
 const MapClickHandler = ({ mode, setNewMarkerPosition, newMarkerPosition, deleteTarget }) => {
@@ -57,6 +60,12 @@ const MapView = () => {
       }
     } else {
       fetchData();
+
+    const map = L.map("map", {
+        center: [35.3846487, 139.3220111], // 伊勢原市の座標
+        zoom: 15,
+        gestureHandling: true, // ← 追加！
+      });   
     }
 
     // 🔥 現在地の取得
