@@ -91,18 +91,6 @@ const MapView = () => {
     }
   };
 
-  // ✅ マーカーを移動（移動モード）
-  const updateMarkerPosition = (id, newLat, newLon) => {
-    if (mode === "move") {
-      const confirmMove = window.confirm("📌 マーカーの位置を変更しますか？");
-      if (confirmMove) {
-        setHydrants((prev) =>
-          prev.map((marker) => (marker.id === id ? { ...marker, lat: newLat, lon: newLon } : marker))
-        );
-      }
-    }
-  };
-
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={defaultPosition} zoom={defaultZoom} style={{ height: "100vh", width: "100%" }}>
@@ -120,7 +108,18 @@ const MapView = () => {
               draggable={mode === "move"}
               eventHandlers={{
                 dragend: (e) => {
-                  updateMarkerPosition(item.id, e.target.getLatLng().lat, e.target.getLatLng().lng);
+                  if (mode === "move") {
+                    const confirmMove = window.confirm("📌 マーカーの位置を変更しますか？");
+                    if (confirmMove) {
+                      setHydrants((prev) =>
+                        prev.map((marker) =>
+                          marker.id === item.id
+                            ? { ...marker, lat: e.target.getLatLng().lat, lon: e.target.getLatLng().lng }
+                            : marker
+                        )
+                      );
+                    }
+                  }
                 },
                 click: () => handleMarkerClick(item.id),
               }}
@@ -180,6 +179,19 @@ const MapView = () => {
       </button>
     </div>
   );
+};
+
+// ✅ マーカー追加コンポーネント
+const AddMarkerOnClick = ({ mode, setHydrants }) => {
+  useMapEvents({
+    click(e) {
+      if (mode === "edit") {
+        const newId = `new-${Date.now()}`;
+        setHydrants((prev) => [...prev, { id: newId, lat: e.latlng.lat, lon: e.latlng.lng, type: "消火栓", address: "不明", checked: false }]);
+      }
+    },
+  });
+  return null;
 };
 
 export default MapView;
