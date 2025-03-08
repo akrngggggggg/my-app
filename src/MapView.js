@@ -1,24 +1,22 @@
-import L from "leaflet";  // ✅ 一番最初に Leaflet をインポート
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-gesture-handling";
 import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 
 const MapView = () => {
   const defaultPosition = [35.3933, 139.3072]; // 伊勢原市の中心座標
   const defaultZoom = 16;
-  const mapRef = useRef(null); 
-
+  
   const [hydrants, setHydrants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState(defaultPosition);
   const [mapZoom, setMapZoom] = useState(defaultZoom);
-  const [mode, setMode] = useState("inspection"); // 🔥 点検/編集モード
-  const [showModeMenu, setShowModeMenu] = useState(false); // 🔥 モード切り替えメニューの表示
+  const [mode, setMode] = useState("inspection"); 
+  const [showModeMenu, setShowModeMenu] = useState(false);
 
-  /** 🔥 データ取得処理（useEffectの前に定義） */
+  /** 🔥 データ取得処理 */
   const fetchData = useCallback(() => {
     console.log("📡 [DEBUG] fetchData() 実行開始");
     fetch("/.netlify/functions/get_hydrants")
@@ -37,20 +35,9 @@ const MapView = () => {
 
   /** 🔥 初回マウント時の処理 */
   useEffect(() => {
-    if (!window.L) {
-      window.L = L;
-
     console.log("🔄 [DEBUG] useEffect() 実行: fetchData() を呼び出します！");
- 
-    // ローカルストレージにデータがあれば取得
-    const savedData = localStorage.getItem("fire_hydrants");
-    if (savedData) {
-      setHydrants(JSON.parse(savedData));
-    } else {
-      fetchData();
-    }
+    fetchData();
 
-    // ユーザーの現在地を取得
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -61,7 +48,7 @@ const MapView = () => {
         }
       );
     }
-  } [fetchData];
+  }, [fetchData]);
 
   /** 🔥 現在地に戻る */
   const moveToCurrentLocation = () => {
@@ -81,19 +68,11 @@ const MapView = () => {
   const changeMode = (newMode) => {
     setMode(newMode);
     setShowModeMenu(false);
-  }
+  };
 
   return (
     <div style={{ position: "relative" }}>
-      <MapContainer 
-  center={mapCenter} 
-  zoom={mapZoom} 
-  style={{ height: "100vh", width: "100%" }}
-  whenCreated={(map) => {
-    mapRef.current = map;
-    map.gestureHandling.enable(); // ✅ Gesture Handling を有効化
-  }}
->
+      <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         {/* 🔵 ユーザーの現在地をマーカーで表示 */}
