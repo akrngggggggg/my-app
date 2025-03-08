@@ -80,43 +80,13 @@ const MapView = () => {
     );
   };
 
-  // ✅ クリックで新しいマーカーを追加（追加削除モード）
-  const AddMarkerOnClick = () => {
-    useMapEvents({
-      click(e) {
-        if (mode === "edit") {
-          const newId = `new-${Date.now()}`;
-          setHydrants((prev) => [
-            ...prev,
-            { id: newId, lat: e.latlng.lat, lon: e.latlng.lng, type: "消火栓", address: "不明" },
-          ]);
-        }
-      },
-    });
-    return null;
-  };
-
-  // ✅ マーカーを削除する（追加削除モード）
-  const removeMarker = (id) => {
-    if (mode === "edit") {
-      setHydrants((prev) => prev.filter((marker) => marker.id !== id));
-    }
-  };
-
   return (
     <div style={{ position: "relative" }}>
       <MapContainer center={defaultPosition} zoom={defaultZoom} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-        {/* 👤 現在地マーカー（人型） */}
-        {userLocation && (
-          <Marker position={userLocation} icon={userIcon}>
-            <Popup>現在地</Popup>
-          </Marker>
-        )}
-
         {/* 🔥 消火栓 & 防火水槽マーカー */}
-        <AddMarkerOnClick />
+        <AddMarkerOnClick mode={mode} setHydrants={setHydrants} />
         {hydrants.map((item) => {
           const markerIcon = item.type.includes("防火") ? tankIcon : hydrantIcon;
 
@@ -134,7 +104,7 @@ const MapView = () => {
                 },
                 click: () => {
                   if (mode === "edit") {
-                    removeMarker(item.id);
+                    setHydrants((prev) => prev.filter((marker) => marker.id !== item.id));
                   }
                 },
               }}
@@ -142,11 +112,14 @@ const MapView = () => {
               <Popup>
                 <b>住所:</b> {item.address} <br />
                 <b>種類:</b> {item.type}
-                {mode === "edit" && <button onClick={() => removeMarker(item.id)}>削除</button>}
+                {mode === "edit" && <button onClick={() => setHydrants((prev) => prev.filter((m) => m.id !== item.id))}>削除</button>}
               </Popup>
             </Marker>
           );
         })}
+
+        {/* 👤 現在地マーカー（人型） */}
+        {userLocation && <Marker position={userLocation} icon={userIcon}><Popup>現在地</Popup></Marker>}
 
         {/* 🔘 現在地に戻るボタン */}
         <CurrentLocationButton userLocation={userLocation} />
@@ -193,10 +166,27 @@ const MapView = () => {
   );
 };
 
+// ✅ クリックで新しいマーカーを追加（追加削除モード）
+const AddMarkerOnClick = ({ mode, setHydrants }) => {
+  useMapEvents({
+    click(e) {
+      if (mode === "edit") {
+        const newId = `new-${Date.now()}`;
+        setHydrants((prev) => [
+          ...prev,
+          { id: newId, lat: e.latlng.lat, lon: e.latlng.lng, type: "消火栓", address: "不明" },
+        ]);
+      }
+    },
+  });
+  return null;
+};
+
 const CurrentLocationButton = ({ userLocation }) => {
+  const map = useMap();
   return (
     <button
-      onClick={() => userLocation && useMapEvents().setView(userLocation, 16)}
+      onClick={() => userLocation && map.setView(userLocation, 16)}
       style={{
         position: "fixed",
         bottom: "20px",
