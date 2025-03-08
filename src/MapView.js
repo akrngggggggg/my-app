@@ -18,7 +18,7 @@ const saveToFirestore = async (hydrants) => {
   }
 };
 
-// 🔥 シンプルな赤丸（消火栓）・青丸（防火水槽）のマーカー
+// 🔥 消火栓（赤）・防火水槽（青）のマーカー
 const hydrantIcon = L.divIcon({
   className: "custom-marker",
   html: '<div style="width:12px; height:12px; background-color:red; border-radius:50%; border:2px solid white;"></div>',
@@ -31,7 +31,7 @@ const tankIcon = L.divIcon({
   iconSize: [12, 12],
 });
 
-// 👤 現在地マーカーを「人型」に変更！
+// 👤 現在地マーカー（人型）
 const userIcon = L.icon({
   iconUrl: "https://maps.google.com/mapfiles/kml/shapes/man.png",
   iconSize: [32, 32],
@@ -61,19 +61,20 @@ const MapView = () => {
     }
   }, []);
 
-  // ✅ 消火栓・防火水槽のデータ取得
+  // ✅ 消火栓・防火水槽のデータ取得（初期マーカーの読み込み）
   useEffect(() => {
     fetch("/.netlify/functions/get_hydrants")
       .then((response) => response.json())
       .then((data) => {
         if (data.length > 0) {
+          console.log("📥 初期マーカー取得:", data);
           setHydrants(data);
         }
       })
       .catch((error) => console.error("データ取得失敗:", error));
   }, []);
 
-  // ✅ マーカーをドラッグして移動する（移動モード）
+  // ✅ マーカーを移動（移動モード）
   const updateMarkerPosition = (id, newLat, newLon) => {
     if (mode === "move") {
       const confirmMove = window.confirm("📌 マーカーの位置を変更しますか？");
@@ -90,7 +91,7 @@ const MapView = () => {
       <MapContainer center={defaultPosition} zoom={defaultZoom} style={{ height: "100vh", width: "100%" }}>
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-        {/* 🔥 消火栓 & 防火水槽マーカー */}
+        {/* 🔥 初期マーカー */}
         <AddMarkerOnClick mode={mode} setHydrants={setHydrants} />
         {hydrants.map((item) => {
           const markerIcon = item.type.includes("防火") ? tankIcon : hydrantIcon;
@@ -100,7 +101,7 @@ const MapView = () => {
               key={item.id}
               position={[item.lat, item.lon]}
               icon={markerIcon}
-              draggable={mode === "move"} // 移動モードならドラッグ可能
+              draggable={mode === "move"} // 移動モードのみドラッグ可能
               eventHandlers={{
                 dragend: (e) => {
                   updateMarkerPosition(item.id, e.target.getLatLng().lat, e.target.getLatLng().lng);
@@ -123,14 +124,14 @@ const MapView = () => {
           );
         })}
 
-        {/* 👤 現在地マーカー（人型） */}
+        {/* 👤 現在地マーカー */}
         {userLocation && <Marker position={userLocation} icon={userIcon}><Popup>現在地</Popup></Marker>}
 
         {/* 🔘 現在地に戻るボタン */}
         <CurrentLocationButton userLocation={userLocation} />
       </MapContainer>
 
-      {/* 🛠 モード切替ボタン（右上） */}
+      {/* 🛠 モード切替ボタン */}
       <button
         onClick={() => setMode((prev) => (prev === "inspection" ? "move" : prev === "move" ? "edit" : "inspection"))}
         style={{
@@ -149,7 +150,7 @@ const MapView = () => {
         {mode === "inspection" ? "🔄 移動モード" : mode === "move" ? "➕ 追加削除モード" : "✅ 点検モード"}
       </button>
 
-      {/* 💾 保存ボタン（左下） */}
+      {/* 💾 保存ボタン */}
       <button
         onClick={() => saveToFirestore(hydrants)}
         style={{
