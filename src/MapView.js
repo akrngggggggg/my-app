@@ -1,20 +1,14 @@
 import "leaflet/dist/leaflet.css";
 import "leaflet-gesture-handling";
 import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import React, { useState, useEffect, useCallback } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
-
 
 const MapClickHandler = ({ mode, setNewMarkerPosition, newMarkerPosition, deleteTarget }) => {
   useMapEvents({
     click(e) {
-      if (
-        mode === "add" && 
-        !newMarkerPosition && 
-        !deleteTarget && 
-        e.originalEvent.target.tagName === "DIV"
-      ) {
+      if (mode === "add" && !newMarkerPosition && !deleteTarget) {
         setNewMarkerPosition(e.latlng);
       }
     },
@@ -22,162 +16,113 @@ const MapClickHandler = ({ mode, setNewMarkerPosition, newMarkerPosition, delete
   return null;
 };
 
+const MapUpdater = ({ mapCenter, mapZoom, returnFlag, setReturnFlag }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (returnFlag && map) {
+      map.setView(mapCenter, mapZoom);
+      setReturnFlag(false);
+    }
+  }, [map, mapCenter, mapZoom, returnFlag, setReturnFlag]);
+  return null;
+};
+
 const MapView = () => {
-  const defaultPosition = [35.3933, 139.3072]; // 初期位置（伊勢原市）
-  const defaultZoom = 16;  // 所定のズームレベル
-  const mapRef = useRef(null); // ← ここで map の参照を作る
+  const defaultPosition = [35.3933, 139.3072]; // 伊勢原市
+  const defaultZoom = 16;
   const [hydrants, setHydrants] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState(defaultPosition);
   const [mapZoom, setMapZoom] = useState(defaultZoom);
-
-  const handleModeChange = (newMode) => {
-    setMode(newMode);
-    setTimeout(() => setShowModeMenu(false), 0);
-  };
-
+  const [returnFlag, setReturnFlag] = useState(false);
+  const [mode, setMode] = useState("inspection");
+  const [showModeMenu, setShowModeMenu] = useState(false);
   const [newMarkerPosition, setNewMarkerPosition] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [moveTarget, setMoveTarget] = useState(null);
   const [movePosition, setMovePosition] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState(false);
-  const [mapCenter, setMapCenter] = useState(defaultPosition);  // 地図中心を管理するstate
-  const [mapZoom, setMapZoom] = useState(defaultZoom);  // ズームレベルを管理するstate
-  const [returnFlag, setReturnFlag] = useState(false);  // 現在地に戻るフラグ
 
   const fetchData = useCallback(() => {
-    console.log("📡 [DEBUG] fetchData() 実行開始");
     fetch("/.netlify/functions/get_hydrants")
-      .then((response) => {
-        console.log("📡 [DEBUG] APIレスポンス:", response);
-        return response.json();
-      })
-      .then((data) => {
-        console.log("📥 [DEBUG] 取得データ:", data);
-        if (data.length > 0) {
-          setHydrants(data);
-        } else {
-          console.warn("⚠ [WARN] 取得データが空 or 読み込めていない！");
-        }
-      })
-      .catch((error) => console.error("❌ [ERROR] API呼び出しエラー:", error));
-  }, [setHydrants]); // ✅ `useCallback` でラップ
+      .then((res) => res.json())
+      .then((data) => setHydrants(data))
+      .catch((error) => console.error("APIエラー:", error));
+  }, []);
 
   useEffect(() => {
-    console.log("🔄 [DEBUG] useEffect() 実行: fetchData() を呼び出します！");
     fetchData();
-
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation([position.coords.latitude, position.coords.longitude]);
-        },
-        (error) => {
-          console.error("位置情報の取得に失敗:", error);
-        }
+        (position) => setUserLocation([position.coords.latitude, position.coords.longitude]),
+        (error) => console.error("位置情報の取得失敗:", error)
       );
     }
+  }, [fetchData]);
 
-    // 1️⃣ データを localStorage から取得
-    const savedData = localStorage.getItem("fire_hydrants");
-    if (savedData) {
-      const parsedData = JSON.parse(savedData);
-      if (parsedData.length > 0) {
-        console.log("📥 [DEBUG] ローカルストレージからデータをセット");
-        setHydrants(parsedData);
-        setHydrantsLoaded(true);
-      } else {
-        fetchData();
-      }
-    } else {
-      fetchData();
-    }
-
-    // 2️⃣ Leaflet マップの初期化（mapRef が未設定なら）
-    if (!mapRef.current) {
-      mapRef.current = L.map("map", {
-        center: [35.3846487, 139.3220111], // 伊勢原市の座標
-        zoom: 15,
-        gestureHandling: true, // ← 追加！
+  const saveHydrants = () => {
+    fetch("/.netlify/functions/save_hydrants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(hydrants),
+    })
+      .then((res) => res.json())
+      .then(() => {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      })
+      .catch(() => {
+        setSaveError(true);
+        setTimeout(() => setSaveError(false), 3000);
       });
+  };
 
-      // 📌 タイルレイヤーを正しく追加！
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(mapRef.current);
+  const goToCurrentLocation = () => {
+    if (userLocation) {
+      setMapCenter(userLocation);
+      setMapZoom(defaultZoom);
+      setReturnFlag(true);
     }
-  }, [fetchData, setHydrants]); // 依存関係を適切に設定
+  };
 
   return (
-    <div id="map" style={{ width: "100%", height: "100vh" }}>
-      {/* 🔥 追加でボタンを表示する場合 */}
-      <div style={{ position: "absolute", bottom: "10px", right: "10px", zIndex: 1000 }}>
-        <button onClick={() => console.log("現在地に戻る")}>現在地</button>
-      </div>
+    <div>
+      <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: "100vh", width: "100%" }}>
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <MapClickHandler mode={mode} setNewMarkerPosition={setNewMarkerPosition} newMarkerPosition={newMarkerPosition} deleteTarget={deleteTarget} />
+        <MapUpdater mapCenter={mapCenter} mapZoom={mapZoom} returnFlag={returnFlag} setReturnFlag={setReturnFlag} />
+
+        {hydrants.map((item) => (
+          <Marker
+            key={item.id}
+            position={[item.lat, item.lon]}
+            icon={new L.divIcon({
+              className: "custom-icon",
+              html: `<div style="width: 30px; height: 30px; background-color: ${item.type.includes("消火栓") ? "red" : "blue"}; border-radius: 50%; color: white; text-align: center;">${item.checked ? "✔" : "●"}</div>`,
+              iconSize: [30, 30],
+            })}
+            eventHandlers={{
+              click: () => {
+                if (mode === "inspection") {
+                  setHydrants((prev) => prev.map((marker) => marker.id === item.id ? { ...marker, checked: !marker.checked } : marker));
+                } else if (mode === "add") {
+                  setDeleteTarget(item);
+                }
+              },
+            }}
+          />
+        ))}
+      </MapContainer>
+
+      <button onClick={goToCurrentLocation}>現在地に戻る</button>
+      <button onClick={saveHydrants}>保存</button>
+      {saveSuccess && <p>保存成功！</p>}
+      {saveError && <p>保存失敗</p>}
     </div>
   );
 };
 
-    // 🔥 現在地の取得
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation([position.coords.latitude, position.coords.longitude]);
-        },
-        (error) => {
-          console.error("位置情報の取得に失敗:", error);
-        }
-      );
-    }
-  
-
-
-  
-  const saveHydrants = () => {
-  fetch("/.netlify/functions/save_hydrants", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(hydrants),
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      if (data.message) {
-        setSaveSuccess(true);
-        setSaveError(false);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      } else {
-        throw new Error("保存失敗");
-      }
-    })
-    .catch((error) => {
-      console.error("保存リクエストエラー:", error);
-      setSaveError(true);
-      setTimeout(() => setSaveError(false), 3000);
-    });
-};
-
-  // 現在地に戻るボタンを押したときの処理
-  const goToCurrentLocation = () => {
-    if (userLocation) {
-      setMapCenter(userLocation);  // 現在地を地図の中心に設定
-      setMapZoom(defaultZoom);  // ズームレベルを所定の値に戻す
-      setReturnFlag(true);  // 現在地に戻るフラグをセット
-    }
-  };
-
-  // 地図の中心とズームを動的に更新するための処理
-  const MapUpdater = () => {
-    const map = useMap();
-    useEffect(() => {
-      if (returnFlag && map) {
-        map.setView(mapCenter, mapZoom);  // `mapCenter`, `mapZoom`, `returnFlag` の依存は不要
-        setReturnFlag(false);  // フラグをリセット
-      }
-    }, [map]);  // mapのみを依存関係に
-    return null;
-  };
 
       <div>
       {/* 🔥 現在地に戻るボタン（右下に配置） */}
