@@ -51,6 +51,7 @@ const MapView = () => {
       .then((response) => response.json())
       .then((data) => {
         if (data.length > 0) {
+          console.log("📥 取得データ:", data); // デバッグ
           setHydrants(data);
         }
       })
@@ -80,18 +81,21 @@ const MapView = () => {
         )}
 
         {/* 🔥 消火栓 & 防火水槽マーカー */}
-        {hydrants.map((item) => (
-          <Marker
-            key={item.id}
-            position={[item.lat, item.lon]}
-            icon={item.type === "防火水槽" ? tankIcon : hydrantIcon}
-          >
-            <Popup>
-              <b>住所:</b> {item.address} <br />
-              <b>種類:</b> {item.type}
-            </Popup>
-          </Marker>
-        ))}
+        {hydrants.map((item) => {
+          console.log("🔍 マーカー処理中:", item); // デバッグ
+
+          // 🔹 "防火" を含む場合は青丸、防火水槽以外は赤丸
+          const markerIcon = item.type.includes("防火") ? tankIcon : hydrantIcon;
+
+          return (
+            <Marker key={item.id} position={[item.lat, item.lon]} icon={markerIcon}>
+              <Popup>
+                <b>住所:</b> {item.address} <br />
+                <b>種類:</b> {item.type}
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
 
       {/* 🔘 現在地に戻るボタン（右下） */}
