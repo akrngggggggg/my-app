@@ -5,22 +5,22 @@ import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
 import React, { useState, useEffect, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 
-// 🔥 カスタムアイコン（現在地・消火栓・防火水槽）
-const userIcon = new L.Icon({
+// 🔥 カスタムアイコンの設定
+const userIcon = L.icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/lightblue-dot.png", // 水色（現在地）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
 });
 
-const hydrantIcon = new L.Icon({
+const hydrantIcon = L.icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png", // 赤（消火栓）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32],
 });
 
-const tankIcon = new L.Icon({
+const tankIcon = L.icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png", // 青（防火水槽）
   iconSize: [32, 32],
   iconAnchor: [16, 32],
@@ -35,7 +35,7 @@ const MapView = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState(defaultPosition);
   const [mapZoom, setMapZoom] = useState(defaultZoom);
-  const [mode, setMode] = useState("inspection"); // 🔥 点検 / 編集モード
+  const [mode, setMode] = useState("inspection"); 
   const [showModeMenu, setShowModeMenu] = useState(false);
 
   /** 🔥 データ取得処理 */
@@ -62,7 +62,10 @@ const MapView = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation([position.coords.latitude, position.coords.longitude]);
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          setUserLocation([lat, lon]);
+          setMapCenter([lat, lon]); // 初回位置を現在地に設定
         },
         (error) => {
           console.error("位置情報の取得に失敗:", error);
@@ -81,14 +84,10 @@ const MapView = () => {
     }
   };
 
-  /** 🔥 モード切替 */
-  const toggleModeMenu = () => {
-    setShowModeMenu(!showModeMenu);
-  };
-
-  const changeMode = (newMode) => {
-    setMode(newMode);
-    setShowModeMenu(false);
+  /** 🔥 データを保存（仮の処理） */
+  const saveData = () => {
+    console.log("💾 データを保存しました！（実装は後で追加）");
+    alert("データを保存しました！");
   };
 
   return (
@@ -137,14 +136,14 @@ const MapView = () => {
         現在地へ戻る
       </button>
 
-      {/* 🔘 モード切替ボタン（右上固定） */}
+      {/* 💾 保存ボタン（左下固定） */}
       <button
-        onClick={toggleModeMenu}
+        onClick={saveData}
         style={{
           position: "fixed",
-          top: "20px",
-          right: "20px",
-          backgroundColor: "#28a745",
+          bottom: "20px",
+          left: "20px",
+          backgroundColor: "#dc3545",
           color: "#fff",
           padding: "10px 15px",
           border: "none",
@@ -153,28 +152,8 @@ const MapView = () => {
           zIndex: 1000,
         }}
       >
-        モード切替
+        保存
       </button>
-
-      {/* 🔽 モード選択メニュー */}
-      {showModeMenu && (
-        <div
-          style={{
-            position: "fixed",
-            top: "70px",
-            right: "20px",
-            backgroundColor: "#fff",
-            padding: "10px",
-            borderRadius: "5px",
-            boxShadow: "0px 2px 10px rgba(0,0,0,0.2)",
-            zIndex: 1000,
-          }}
-        >
-          <p>現在のモード: <b>{mode === "inspection" ? "点検" : "編集"}</b></p>
-          <button onClick={() => changeMode("inspection")}>点検モード</button>
-          <button onClick={() => changeMode("edit")}>編集モード</button>
-        </div>
-      )}
     </div>
   );
 };
