@@ -70,6 +70,25 @@ const MapView = () => {
       map.setCenter(userLocation);
       map.setZoom(16);
     }
+    function moveToCurrentLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const currentLat = position.coords.latitude;
+            const currentLng = position.coords.longitude;
+    
+            // Google Maps の中心を現在地に変更 & ズームを16に設定
+            map.setCenter({ lat: currentLat, lng: currentLng });
+            map.setZoom(16);
+          },
+          (error) => {
+            console.error("📍 現在地の取得に失敗しました:", error);
+          }
+        );
+      } else {
+        console.error("⚠️ このブラウザは位置情報をサポートしていません");
+      }
+    }
   };
 
   return (
@@ -79,7 +98,7 @@ const MapView = () => {
 
       {/* 現在地に戻るボタン */}
       <button
-        onClick={handleGoToCurrentLocation}
+        onClick="moveToCurrentLocation()"
         style={{
           position: "absolute",
           bottom: "10px",
@@ -93,7 +112,7 @@ const MapView = () => {
           zIndex: 1000,
         }}
       >
-        現在地に戻る
+       現在地に戻る
       </button>
     </div>
   );
