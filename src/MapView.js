@@ -1,120 +1,65 @@
 import React, { useEffect, useState } from "react";
+import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 
 const MapView = () => {
-  const [map, setMap] = useState(null);
+  const [center, setCenter] = useState({ lat: 35.6895, lng: 139.6917 }); // デフォルトは東京
   const [userLocation, setUserLocation] = useState(null);
+  const [map, setMap] = useState(null);
 
   useEffect(() => {
-    // Google Maps をロード
-    const loadGoogleMaps = () => {
-      if (!window.google) {
-        console.error("Google Maps API が読み込まれていません！");
-        return;
-      }
-
-      const mapInstance = new window.google.maps.Map(document.getElementById("map"), {
-        center: { lat: 35.3846487, lng: 139.322011 }, // 伊勢原市の中心
-        zoom: 15,
-      });
-
-      setMap(mapInstance);
-    };
-
-    if (window.google) {
-      loadGoogleMaps();
-    } else {
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`;
-      script.async = true;
-      script.defer = true;
-      script.onload = loadGoogleMaps;
-      document.head.appendChild(script);
+    // 現在地を取得して初期位置に設定
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const newLocation = { lat: latitude, lng: longitude };
+          setCenter(newLocation);
+          setUserLocation(newLocation);
+        },
+        () => console.error("位置情報が取得できませんでした")
+      );
     }
   }, []);
 
-  useEffect(() => {
-    if (map) {
-      // 現在地を取得
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            const userLatLng = { lat: latitude, lng: longitude };
-            setUserLocation(userLatLng);
-
-            // マーカーを追加
-            new window.google.maps.Marker({
-              position: userLatLng,
-              map: map,
-              title: "現在地",
-              icon: {
-                url: "https://maps.google.com/mapfiles/kml/paddle/blu-circle.png", // 青い丸アイコン
-                scaledSize: new window.google.maps.Size(40, 40),
-              },
-            });
-
-            // マップを現在地に移動
-            map.setCenter(userLatLng);
-          },
-          () => {
-            console.error("現在地を取得できませんでした。");
-          }
-        );
-      }
-    }
-  }, [map]);
-
-  // 現在地に戻るボタンの処理
-  const handleGoToCurrentLocation = () => {
-    if (userLocation && map) {
+  // 現在地に戻る処理（ズームレベル16）
+  const moveToCurrentLocation = () => {
+    if (map && userLocation) {
       map.setCenter(userLocation);
       map.setZoom(16);
-    }
-    function moveToCurrentLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const currentLat = position.coords.latitude;
-            const currentLng = position.coords.longitude;
-    
-            // Google Maps の中心を現在地に変更 & ズームを16に設定
-            map.setCenter({ lat: currentLat, lng: currentLng });
-            map.setZoom(16);
-          },
-          (error) => {
-            console.error("📍 現在地の取得に失敗しました:", error);
-          }
-        );
-      } else {
-        console.error("⚠️ このブラウザは位置情報をサポートしていません");
-      }
     }
   };
 
   return (
-    <div>
-      {/* マップコンテナ */}
-      <div id="map" style={{ width: "100%", height: "100vh" }}></div>
+    <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}>
+      <GoogleMap
+        mapContainerStyle={{ width: "100%", height: "100vh" }}
+        center={center}
+        zoom={15}
+        onLoad={(mapInstance) => setMap(mapInstance)}
+      >
+        {/* 現在地マーカー */}
+        {userLocation && <Marker position={userLocation} title="現在地" />}
+      </GoogleMap>
 
       {/* 現在地に戻るボタン */}
       <button
-        onClick="moveToCurrentLocation()"
+        onClick={moveToCurrentLocation}
         style={{
           position: "absolute",
           bottom: "10px",
           right: "10px",
-          padding: "10px 15px",
-          background: "#007bff",
-          color: "#fff",
+          zIndex: 1000,
+          padding: "10px",
+          backgroundColor: "blue",
+          color: "white",
           border: "none",
           borderRadius: "5px",
           cursor: "pointer",
-          zIndex: 1000,
         }}
       >
-       現在地に戻る
+        現在地に戻る
       </button>
-    </div>
+    </LoadScript>
   );
 };
 
