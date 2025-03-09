@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api";
 
 const mapContainerStyle = {
@@ -43,24 +43,43 @@ const MapView = () => {
   }, []);
 
   // 🔴 消火栓（赤丸アイコン）
-  const hydrantIcon = {
-    path: window.google.maps.SymbolPath.CIRCLE,
-    fillColor: "red",
-    fillOpacity: 1,
-    scale: 8,
-    strokeColor: "white",
-    strokeWeight: 2,
-  };
+  const getHydrantIcon = useCallback(() => {
+    if (!isLoaded || !window.google) return null;
+    return {
+      path: window.google.maps.SymbolPath.CIRCLE,
+      fillColor: "red",
+      fillOpacity: 1,
+      scale: 8,
+      strokeColor: "white",
+      strokeWeight: 2,
+    };
+  }, [isLoaded]);
 
   // 🔵 防火水槽（青丸アイコン）
-  const waterTankIcon = {
-    path: window.google.maps.SymbolPath.CIRCLE,
-    fillColor: "blue",
-    fillOpacity: 1,
-    scale: 8,
-    strokeColor: "white",
-    strokeWeight: 2,
-  };
+  const getWaterTankIcon = useCallback(() => {
+    if (!isLoaded || !window.google) return null;
+    return {
+      path: window.google.maps.SymbolPath.CIRCLE,
+      fillColor: "blue",
+      fillOpacity: 1,
+      scale: 8,
+      strokeColor: "white",
+      strokeWeight: 2,
+    };
+  }, [isLoaded]);
+
+  // 📍 現在地マーカー
+  const getUserLocationIcon = useCallback(() => {
+    if (!isLoaded || !window.google) return null;
+    return {
+      path: window.google.maps.SymbolPath.CIRCLE,
+      scale: 10,
+      fillColor: "green",
+      fillOpacity: 1,
+      strokeColor: "white",
+      strokeWeight: 2,
+    };
+  }, [isLoaded]);
 
   if (loadError) return <div>マップを読み込めませんでした</div>;
   if (!isLoaded) return <div>読み込み中...</div>;
@@ -72,13 +91,13 @@ const MapView = () => {
         <Marker
           key={marker.id}
           position={{ lat: marker.lat, lng: marker.lon }}
-          icon={marker.type === "公設消火栓" ? hydrantIcon : waterTankIcon}
+          icon={marker.type === "公設消火栓" ? getHydrantIcon() : getWaterTankIcon()}
           title={marker.address}
         />
       ))}
 
       {/* 📍 現在地マーカー */}
-      <Marker position={center} icon={{ path: window.google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "green", fillOpacity: 1, strokeColor: "white", strokeWeight: 2 }} />
+      <Marker position={center} icon={getUserLocationIcon()} />
 
       {/* 🔘 現在地に戻るボタン */}
       <button
