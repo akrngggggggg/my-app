@@ -6,30 +6,18 @@ import {
 } from "@react-google-maps/api";
 import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
+import haversine from "haversine-distance"; // 距離計算用
+import { useRef } from "react"; // 🔥 useRef をインポート！
+import { MarkerClustererF } from "@react-google-maps/api";
 
 const mapContainerStyle = {
   width: "100%",
   height: "100vh",
 };
 
-const checkedIcon = {
-  url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="10" fill="green"/>
-      <path d="M6 12l4 4 8-8" stroke="white" stroke-width="2" fill="none"/>
-    </svg>
-  `),
-  scaledSize: { width: 40, height: 40 },
-};
-
 const userLocationIcon = {
-  url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="10" fill="deepskyblue"/>
-      <circle cx="12" cy="12" r="5" fill="white"/>
-    </svg>
-  `),
-  scaledSize: { width: 40, height: 40 },
+  url: "https://maps.google.com/mapfiles/kml/shapes/man.png", // 🔥 現在地アイコン（黄色のピン）
+  scaledSize: new window.google.maps.Size(40, 40),
 };
 
 const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
@@ -55,6 +43,9 @@ const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
 };
 
 const MapView = () => {
+
+  const [visibleHydrants, setVisibleHydrants] = useState([]);
+
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
@@ -69,7 +60,16 @@ const MapView = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false); // ダイアログの開閉
   const [dialogMessage, setDialogMessage] = useState(""); // 表示するメッセージ
   const [dialogAction, setDialogAction] = useState(null); // 確定時の処理
-  
+  const [isListOpen, setIsListOpen] = useState(false); // リストの開閉状態
+  const [selectedLocation, setSelectedLocation] = useState(null); // クリック位置を一時保存
+  const [showSelection, setShowSelection] = useState(false); // 選択UIの表示フラグ
+  const [mapBounds, setMapBounds] = useState(null); // 地図の表示範囲
+  const mapRef = useRef(null); // マップの参照を作る
+ 
+  const onMapLoad = (map) => {
+    mapRef.current = map; // 🔥 Google Map のインスタンスを保存！
+  };
+
   const updateUserLocation = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -121,6 +121,18 @@ const MapView = () => {
     setIsDialogOpen(true);
   };
   
+  useEffect(() => {
+    if (!userLocation || hydrants.length === 0) return;
+  
+    // 1km 以内のマーカーだけフィルタリング
+    const filteredHydrants = hydrants.filter(hydrant => {
+      const distance = haversine(userLocation, { lat: hydrant.lat, lng: hydrant.lon });
+      return distance <= 1000; // 1000m (1km)
+    });
+  
+    setVisibleHydrants(filteredHydrants);
+  }, [userLocation, hydrants]);
+
   const confirmMoveMarker = async (firestoreId, newLat, newLng) => {
     try {
       const hydrantRef = doc(db, "fire_hydrants", firestoreId);
@@ -142,29 +154,30 @@ const MapView = () => {
     setIsDialogOpen(false);
   };
  
-const [selectedLocation, setSelectedLocation] = useState(null); // クリック位置を一時保存
-const [showSelection, setShowSelection] = useState(false); // 選択UIの表示フラグ
-
 const handleMapClick = (event) => {
   if (mode !== "追加削除") return;
 
   const newLat = event.latLng.lat();
   const newLng = event.latLng.lng();
 
-  setDialogMessage("ここに消火栓または防火水槽を追加しますか？");
-  setDialogAction(() => () => confirmAddMarker(newLat, newLng));
-  setIsDialogOpen(true);
+  setSelectedLocation({ lat: newLat, lng: newLng });
+  setShowSelection(true);
 };
 
-const confirmAddMarker = async (lat, lng) => {
+const confirmAddMarker = async (type) => {
+  if (!selectedLocation) return;
+
   try {
-    const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`);
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${selectedLocation.lat},${selectedLocation.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
+    );
     const data = await response.json();
     const address = data.results[0]?.formatted_address || "不明な住所";
 
     const newMarker = {
-      lat, lon: lng,
-      type: "消火栓", // 🚀 デフォルトは消火栓（後で選択できるようにするなら拡張可）
+      lat: selectedLocation.lat,
+      lon: selectedLocation.lng,
+      type, // 🔥 ここで「消火栓」or「防火水槽」を反映！
       address,
       checked: false,
     };
@@ -172,12 +185,13 @@ const confirmAddMarker = async (lat, lng) => {
     const docRef = await addDoc(collection(db, "fire_hydrants"), newMarker);
     setHydrants([...hydrants, { firestoreId: docRef.id, ...newMarker }]);
 
-    console.log(`✅ 追加完了: 消火栓 (${lat}, ${lng}) @ ${address}`);
+    console.log(`✅ 追加完了: ${type} (${selectedLocation.lat}, ${selectedLocation.lng}) @ ${address}`);
   } catch (error) {
     console.error("🚨 追加エラー:", error);
   }
 
-  setIsDialogOpen(false);
+  setShowSelection(false);
+  setSelectedLocation(null);
 };
 
 const handleMarkerDelete = (firestoreId, type) => {
@@ -198,38 +212,71 @@ const confirmDeleteMarker = async (firestoreId) => {
   setIsDialogOpen(false);
 };
 
-  const handleCheckHydrant = async (firestoreId) => {
-    try {
-      const hydrantRef = doc(db, "fire_hydrants", firestoreId);
-      const hydrantDoc = await getDoc(hydrantRef);
+const handleCheckHydrant = async (firestoreId) => {
+  try {
+    const hydrantRef = doc(db, "fire_hydrants", firestoreId);
+    const hydrantDoc = await getDoc(hydrantRef);
 
-      if (!hydrantDoc.exists()) {
-        console.error(`🚨 Firestore 更新エラー: 該当の消火栓が見つからない ID=${firestoreId}`);
-        return;
-      }
-
-      const currentChecked = hydrantDoc.data().checked || false;
-      await updateDoc(hydrantRef, { checked: !currentChecked });
-
-      setHydrants((prevHydrants) =>
-        prevHydrants.map((hydrant) =>
-          hydrant.firestoreId === firestoreId ? { ...hydrant, checked: !currentChecked } : hydrant
-        )
-      );
-
-      setCheckedList((prevList) => {
-        if (currentChecked) {
-          return prevList.filter((item) => item.firestoreId !== firestoreId);
-        } else {
-          return [...prevList, hydrantDoc.data()];
-        }
-      });
-
-      console.log(`✅ Firestore 更新完了: ${firestoreId} を ${!currentChecked} に変更`);
-    } catch (error) {
-      console.error("🚨 Firestore 更新エラー:", error);
+    if (!hydrantDoc.exists()) {
+      console.error(`🚨 Firestore 更新エラー: 該当の消火栓が見つからない ID=${firestoreId}`);
+      return;
     }
-  };
+
+    const hydrantData = hydrantDoc.data();
+    const currentChecked = hydrantData.checked || false;
+
+    // 🔥 同じ座標のマーカーをすべて取得
+    const sameLocationHydrants = hydrants.filter(h => 
+      h.lat === hydrantData.lat && h.lon === hydrantData.lon
+    );
+
+    // 🔥 Firestore のデータを更新（すべてのマーカー）
+    for (const hydrant of sameLocationHydrants) {
+      const ref = doc(db, "fire_hydrants", hydrant.firestoreId);
+      await updateDoc(ref, { checked: !currentChecked });
+    }
+
+    // 🔥 フロント側のデータも更新
+    setHydrants(prevHydrants =>
+      prevHydrants.map(h =>
+        h.lat === hydrantData.lat && h.lon === hydrantData.lon
+          ? { ...h, checked: !currentChecked }
+          : h
+      )
+    );
+
+    console.log(`✅ チェック完了: (${hydrantData.lat}, ${hydrantData.lon}) のマーカーを更新`);
+  } catch (error) {
+    console.error("🚨 Firestore 更新エラー:", error);
+  }
+};
+
+
+const handleBoundsChanged = () => {
+  if (!mapRef.current) {
+    console.log("🚨 mapRef がまだロードされていない！");
+    return;
+  }
+  
+  const bounds = mapRef.current.getBounds();
+  if (!bounds) {
+    console.log("🚨 getBounds() が undefined！ズームアウトしすぎかも？");
+    return;
+  }
+
+  setMapBounds(bounds);
+};
+useEffect(() => {
+  if (!mapBounds || hydrants.length === 0) return;
+
+  const visibleHydrants = hydrants.filter(hydrant => {
+    const latLng = new window.google.maps.LatLng(hydrant.lat, hydrant.lon);
+    return mapBounds.contains(latLng);
+  });
+
+  setVisibleHydrants(visibleHydrants);
+}, [mapBounds, hydrants]);
+
 
   const handleResetCheckedList = () => {
     if (mode !== "点検") {
@@ -280,13 +327,12 @@ const confirmDeleteMarker = async (firestoreId) => {
   const getModeStyle = () => {
     switch (mode) {
       case "点検":
+        default:
         return { backgroundColor: "#4CAF50", color: "white" };
       case "移動":
         return { backgroundColor: "#2196F3", color: "white" };
       case "追加削除":
         return { backgroundColor: "#FF5722", color: "white" };
-      default:
-        return { backgroundColor: "white", color: "black" };
     }
   };
 
@@ -294,11 +340,25 @@ const confirmDeleteMarker = async (firestoreId) => {
 
   return (
     <div style={{ position: "relative" }}>
-      <GoogleMap mapContainerStyle={mapContainerStyle} 
-                                    center={center} 
-                                    zoom={zoom}
-                                    onClick={(e) => handleMapClick(e)}
-                                    >
+     <GoogleMap
+      mapContainerStyle={mapContainerStyle}
+      center={center}
+      zoom={zoom}
+      onClick={(e) => handleMapClick(e)}
+      onLoad={onMapLoad}
+      onBoundsChanged={handleBoundsChanged}
+     >
+      <MarkerClustererF>
+    {(clusterer) =>
+      visibleHydrants.map((hydrant) => (
+        <MarkerF
+          key={hydrant.firestoreId}
+          position={{ lat: hydrant.lat, lng: hydrant.lon }}
+          clusterer={clusterer} // 🔥 クラスターに追加！
+        />
+      ))
+    }
+  </MarkerClustererF>
       <CustomDialog 
        isOpen={isDialogOpen} 
        message={dialogMessage} 
@@ -326,66 +386,93 @@ const confirmDeleteMarker = async (firestoreId) => {
   </div>
 )}
 
-        {hydrants.map((hydrant) => (
-          <MarkerF
-          key={hydrant.firestoreId}
-          position={{ lat: hydrant.lat, lng: hydrant.lon }}
-          draggable={mode === "移動"}  // 🔥「移動モード」のときのみドラッグ可能
-          onDragEnd={(e) => 
-            handleMarkerDragEnd(
-              hydrant.firestoreId, 
-              e.latLng.lat(), 
-              e.latLng.lng(), 
-              hydrant.lat, 
-              hydrant.lon
-            )
-          }
-          onClick={() => {
-           
-            if (mode === "追加削除") {
-              handleMarkerDelete(hydrant.firestoreId, hydrant.type);
-            } else {
-              handleCheckHydrant(hydrant.firestoreId);
-            }
-          }}
-          icon={hydrant.checked
-            ? checkedIcon
-            : {
-                path: window.google?.maps?.SymbolPath.CIRCLE || 0,
-                scale: 14,
-                fillColor: hydrant.type === "公設消火栓" ? "red" : "blue",
-                fillOpacity: 1,
-                strokeWeight: 1,
-                strokeColor: "white",
-              }
-          }
-        />
-        ))}
+{visibleHydrants.map((hydrant) => (
+  <MarkerF
+  key={hydrant.firestoreId}
+  position={{ lat: hydrant.lat, lng: hydrant.lon }}
+  draggable={mode === "移動"} // 移動モードのときはドラッグ可能
+  onDragEnd={(e) => 
+    handleMarkerDragEnd(
+      hydrant.firestoreId, 
+      e.latLng.lat(), 
+      e.latLng.lng(), 
+      hydrant.lat, 
+      hydrant.lon
+    )
+  }
+  onClick={() => {
+    if (mode === "点検") {
+      handleCheckHydrant(hydrant.firestoreId); // 🔥 点検モードなら色を変える
+    } else if (mode === "追加削除") {
+      handleMarkerDelete(hydrant.firestoreId, hydrant.type);
+    }
+  }}
+  icon={
+    hydrant.checked
+      ? {
+          url: "http://maps.google.com/mapfiles/ms/icons/green-dot.png", // 🔥 チェック済みなら緑のピン！
+          scaledSize: new window.google.maps.Size(40, 40),
+        }
+      : {
+          url: hydrant.type === "公設消火栓" 
+            ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png" 
+            : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+          scaledSize: new window.google.maps.Size(40, 40),
+        }
+  }
+/>
+
+))}
       </GoogleMap>
 
-      {/* 🔘 モード切替UI */}
-      <div 
+     {/* 🔘 モード切替UI */}
+<div 
+  style={{
+    position: "absolute",
+    top: "10px",
+    right: "10px",
+    padding: "15px",  // ⬆ クリック範囲を広げる
+    borderRadius: "10px",
+    boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
+    ...getModeStyle(),
+    cursor: "pointer",
+    fontSize: "18px", // ⬆ 文字を大きくする
+    minWidth: "150px", // ⬆ 最小幅を設定（幅が狭くならないように）
+    textAlign: "center" // ⬆ 中央揃え
+  }}
+  onClick={() => setIsModeMenuOpen(!isModeMenuOpen)}
+>
+  <h3 style={{ margin: 0, fontSize: "18px" }}>現在のモード: {mode} ▼</h3>
+  {isModeMenuOpen && (
+    <div style={{
+      display: "flex", flexDirection: "column", gap: "10px", // ⬆ ボタンの間隔を広げる
+      padding: "10px"
+    }}>
+      <button 
+        onClick={() => setMode("点検")} 
         style={{
-          position: "absolute",
-          top: "10px",
-          right: "10px",
-          padding: "10px",
-          borderRadius: "8px",
-          boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
-          ...getModeStyle(),
-          cursor: "pointer",
+          padding: "12px", fontSize: "16px", borderRadius: "8px", border: "none",
+          backgroundColor: "#4CAF50", color: "white", cursor: "pointer"
         }}
-        onClick={() => setIsModeMenuOpen(!isModeMenuOpen)}
-      >
-        <h3 style={{ margin: 0 }}>現在のモード: {mode} ▼</h3>
-        {isModeMenuOpen && (
-          <div>
-            <button onClick={() => setMode("点検")}>点検モード</button>
-            <button onClick={() => setMode("移動")}>マーカー移動モード</button>
-            <button onClick={() => setMode("追加削除")}>追加削除モード</button>
-          </div>
-        )}
-      </div>
+      >点検モード</button>
+      <button 
+        onClick={() => setMode("移動")} 
+        style={{
+          padding: "12px", fontSize: "16px", borderRadius: "8px", border: "none",
+          backgroundColor: "#2196F3", color: "white", cursor: "pointer"
+        }}
+      >マーカー移動モード</button>
+      <button 
+        onClick={() => setMode("追加削除")} 
+        style={{
+          padding: "12px", fontSize: "16px", borderRadius: "8px", border: "none",
+          backgroundColor: "#FF5722", color: "white", cursor: "pointer"
+        }}
+      >追加削除モード</button>
+    </div>
+  )}
+</div>
+
 
         {/* 🔘 現在地に戻るボタン */}
         <button onClick={updateUserLocation} style={{
@@ -396,25 +483,47 @@ const confirmDeleteMarker = async (firestoreId) => {
         boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)"
       }}>現在地に戻る</button>
 
-      {/* 🔘 点検リスト */}
-      <div style={{
-        position: "absolute", bottom: "10px", left: "10px", width: "280px",
-        backgroundColor: "rgba(255, 255, 255, 0.9)", padding: "10px",
-        borderRadius: "8px", boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
-        maxHeight: "250px", overflowY: "auto"
-      }}>
-        <h3 style={{ fontSize: "16px", textAlign: "center" }}>✔ 点検済みリスト</h3>
-        {checkedList.slice(0, 5).map((hydrant, index) => (
-          <div key={index} style={{ padding: "5px", borderBottom: "1px solid #ccc", fontSize: "14px" }}>
-            {hydrant.address}
-          </div>
-        ))}
-        <button onClick={handleResetCheckedList} style={{
-          marginTop: "10px", width: "100%", padding: "8px",
-          backgroundColor: "red", color: "white", border: "none",
-          borderRadius: "5px", cursor: "pointer"
-        }}>全てリセット</button>
-      </div>
+      {/* 🔘 リストのトグルボタン */}
+    <button 
+      onClick={() => setIsListOpen(!isListOpen)} 
+      style={{
+        position: "absolute", left: isListOpen ? "280px" : "10px", top: "50%", 
+        transform: "translateY(-50%)",
+        width: "40px",  // ボタンを横に広げる
+        height: "100px", // 縦長にする
+        padding: "12px", // クリックしやすくする
+        fontSize: "25px", // 文字も大きくする
+        border: "none",
+        borderRadius: "10px", // 角を少し丸く
+        cursor: "pointer",
+        backgroundColor: "gray",
+        color: "white",
+        transition: "left 0.3s ease-in-out"
+      }}
+    >
+      {isListOpen ? "◀" : "▶"}
+    </button>
+
+     {/* 🔘 点検リスト */}
+    <div style={{
+      position: "absolute", left: isListOpen ? "0px" : "-300px", bottom: "10px",
+      width: "260px", backgroundColor: "rgba(255, 255, 255, 0.9)", padding: "10px",
+      borderRadius: "8px", boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
+      maxHeight: "250px", overflowY: "auto",minHeight: "600px",
+      transition: "left 0.3s ease-in-out"
+    }}>
+      <h3 style={{ fontSize: "16px", textAlign: "center" }}>✔ 点検済みリスト</h3>
+      {checkedList.slice(0, 10).map((hydrant, index) => (
+        <div key={index} style={{ padding: "5px", borderBottom: "1px solid #ccc", fontSize: "14px" }}>
+          {hydrant.address}
+        </div>
+))}
+      <button onClick={mode === "点検" ? confirmResetCheckedList : () => alert("点検モードでのみリセットできます")} style={{
+        marginTop: "10px", width: "100%", padding: "8px",
+        backgroundColor: "red", color: "white", border: "none",
+        borderRadius: "5px", cursor: "pointer"
+      }}>全てリセット</button>
+    </div>
     </div>
   );
 };

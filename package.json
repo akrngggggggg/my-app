@@ -12,6 +12,7 @@
     "dotenv": "^16.4.7",
     "firebase": "^11.4.0",
     "firebase-admin": "^13.2.0",
+    "haversine-distance": "^1.2.3",
     "leaflet": "^1.9.4",
     "leaflet-gesture-handling": "^1.2.2",
     "react": "^19.0.0",
