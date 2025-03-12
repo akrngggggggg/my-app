@@ -15,9 +15,7 @@
     "haversine-distance": "^1.2.3",
     "leaflet": "^1.9.4",
     "leaflet-gesture-handling": "^1.2.2",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-leaflet": "^5.0.0",
+    "react-leaflet": "^4.2.1",
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },

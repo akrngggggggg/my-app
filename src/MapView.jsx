@@ -10,14 +10,11 @@ import haversine from "haversine-distance"; // 距離計算用
 import { useRef } from "react"; // 🔥 useRef をインポート！
 import { MarkerClustererF } from "@react-google-maps/api";
 
+console.log("🔍 Google Maps API Key:", import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+
 const mapContainerStyle = {
   width: "100%",
   height: "100vh",
-};
-
-const userLocationIcon = {
-  url: "https://maps.google.com/mapfiles/kml/shapes/man.png", // 🔥 現在地アイコン（黄色のピン）
-  scaledSize: new window.google.maps.Size(40, 40),
 };
 
 const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
@@ -43,16 +40,28 @@ const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
 };
 
 const MapView = () => {
+  const [userLocation, setUserLocation] = useState(null);
+  const [userLocationIcon, setUserLocationIcon] = useState(null);
+  const mapRef = useRef(null);
 
-  const [visibleHydrants, setVisibleHydrants] = useState([]);
-
-  const { isLoaded } = useJsApiLoader({
+  const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
 
+  
+const onMapLoad = (map) => {
+  if (!isLoaded || !window.google || !window.google.maps) {
+    console.error("🚨 Google Maps API がまだロードされていない！");
+    return;
+  }
+  mapRef.current = map;
+  console.log("✅ Google Maps ロード完了！", map);
+};
+
+
+  const [visibleHydrants, setVisibleHydrants] = useState([]);
   const [center, setCenter] = useState({ lat: 35.6895, lng: 139.6917 });
   const [zoom, setZoom] = useState(14);
-  const [userLocation, setUserLocation] = useState(null);
   const [hydrants, setHydrants] = useState([]);
   const [checkedList, setCheckedList] = useState([]);
   const [mode, setMode] = useState("点検"); // ✅ モード追加
@@ -64,12 +73,8 @@ const MapView = () => {
   const [selectedLocation, setSelectedLocation] = useState(null); // クリック位置を一時保存
   const [showSelection, setShowSelection] = useState(false); // 選択UIの表示フラグ
   const [mapBounds, setMapBounds] = useState(null); // 地図の表示範囲
-  const mapRef = useRef(null); // マップの参照を作る
- 
-  const onMapLoad = (map) => {
-    mapRef.current = map; // 🔥 Google Map のインスタンスを保存！
-  };
 
+  
   const updateUserLocation = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -83,6 +88,8 @@ const MapView = () => {
       { enableHighAccuracy: true }
     );
   };
+
+
 
   useEffect(() => {
     updateUserLocation();
@@ -348,24 +355,15 @@ useEffect(() => {
       onLoad={onMapLoad}
       onBoundsChanged={handleBoundsChanged}
      >
-      <MarkerClustererF>
-    {(clusterer) =>
-      visibleHydrants.map((hydrant) => (
-        <MarkerF
-          key={hydrant.firestoreId}
-          position={{ lat: hydrant.lat, lng: hydrant.lon }}
-          clusterer={clusterer} // 🔥 クラスターに追加！
-        />
-      ))
-    }
-  </MarkerClustererF>
       <CustomDialog 
        isOpen={isDialogOpen} 
        message={dialogMessage} 
        onConfirm={dialogAction} 
        onCancel={() => setIsDialogOpen(false)} 
       />                                
-{userLocation && (<MarkerF position={userLocation} icon={userLocationIcon} />)}
+{userLocation && userLocationIcon && (
+  <MarkerF position={userLocation} icon={userLocationIcon} />
+)}
 
 {showSelection && (
   <div style={{
@@ -386,43 +384,48 @@ useEffect(() => {
   </div>
 )}
 
-{visibleHydrants.map((hydrant) => (
-  <MarkerF
-  key={hydrant.firestoreId}
-  position={{ lat: hydrant.lat, lng: hydrant.lon }}
-  draggable={mode === "移動"} // 移動モードのときはドラッグ可能
-  onDragEnd={(e) => 
-    handleMarkerDragEnd(
-      hydrant.firestoreId, 
-      e.latLng.lat(), 
-      e.latLng.lng(), 
-      hydrant.lat, 
-      hydrant.lon
-    )
-  }
-  onClick={() => {
-    if (mode === "点検") {
-      handleCheckHydrant(hydrant.firestoreId); // 🔥 点検モードなら色を変える
-    } else if (mode === "追加削除") {
-      handleMarkerDelete(hydrant.firestoreId, hydrant.type);
-    }
-  }}
-  icon={
-    hydrant.checked
-      ? {
-          url: "http://maps.google.com/mapfiles/ms/icons/green-dot.png", // 🔥 チェック済みなら緑のピン！
-          scaledSize: new window.google.maps.Size(40, 40),
+<MarkerClustererF>
+  {(clusterer) =>
+    visibleHydrants.map((hydrant) => (
+      <MarkerF
+        key={hydrant.firestoreId}
+        position={{ lat: hydrant.lat, lng: hydrant.lon }}
+        clusterer={clusterer} // 🔥 クラスターに追加！
+        draggable={mode === "移動"} // 移動モードのときはドラッグ可能
+        onDragEnd={(e) =>
+          handleMarkerDragEnd(
+            hydrant.firestoreId,
+            e.latLng.lat(),
+            e.latLng.lng(),
+            hydrant.lat,
+            hydrant.lon
+          )
         }
-      : {
-          url: hydrant.type === "公設消火栓" 
-            ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png" 
-            : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-          scaledSize: new window.google.maps.Size(40, 40),
+        onClick={() => {
+          if (mode === "点検") {
+            handleCheckHydrant(hydrant.firestoreId); // 🔥 点検モードなら色を変える
+          } else if (mode === "追加削除") {
+            handleMarkerDelete(hydrant.firestoreId, hydrant.type);
+          }
+        }}
+        icon={
+          hydrant.checked
+            ? {
+                url: "http://maps.google.com/mapfiles/ms/icons/green-dot.png", // 🔥 チェック済みなら緑のピン！
+                scaledSize: new window.google.maps.Size(40, 40),
+              }
+            : {
+                url:
+                  hydrant.type === "公設消火栓"
+                    ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+                    : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                scaledSize: new window.google.maps.Size(40, 40),
+              }
         }
+      />
+    ))
   }
-/>
-
-))}
+</MarkerClustererF>
       </GoogleMap>
 
      {/* 🔘 モード切替UI */}
