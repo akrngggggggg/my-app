@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   GoogleMap,
   MarkerF,
@@ -8,16 +8,12 @@ import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc } from "
 import { db } from "./firebase";
 import haversine from "haversine-distance"; // 距離計算用
 import { useRef } from "react"; // useRef をインポート
-import { MarkerClustererF } from "@react-google-maps/api";
+//import { MarkerClustererF } from "@react-google-maps/api";
+import { debounce, isEqual } from "lodash"; 
 
 const mapContainerStyle = {
   width: "100%",
   height: "100vh",
-};
-
-const userLocationIcon = {
-  url: "https://maps.google.com/mapfiles/kml/shapes/man.png", // 🔥 人型アイコン（現在地）
-  scaledSize: new window.google.maps.Size(50, 50), // 大きさを調整
 };
 
 const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
@@ -43,110 +39,170 @@ const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
 };
 
 const MapView = () => {
-  const { isLoaded } = useJsApiLoader({
+  const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
-  const mapRef = useRef(null); // 🔥 マップの参照を作る！
-  const [center, setCenter] = useState({ lat: 35.6895, lng: 139.6917 });
-  const [zoom, setZoom] = useState(14);
-  const [userLocation, setUserLocation] = useState(null);
-  const [hydrants, setHydrants] = useState([]);
-  const [checkedList, setCheckedList] = useState([]);
-  const [mode, setMode] = useState("点検"); // ✅ モード追加
-  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false); // ✅ モードメニュー開閉
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // ダイアログの開閉
-  const [dialogMessage, setDialogMessage] = useState(""); // 表示するメッセージ
-  const [dialogAction, setDialogAction] = useState(null); // 確定時の処理
-  const [isListOpen, setIsListOpen] = useState(false); // リストの開閉状態
-  const [selectedLocation, setSelectedLocation] = useState(null); // クリック位置を一時保存
-  const [showSelection, setShowSelection] = useState(false); // 選択UIの表示フラグ
-  const [visibleHydrants, setVisibleHydrants] = useState([]);
-  const [mapBounds, setMapBounds] = useState(null); // 地図の表示範囲
+    // 🔥 参照 & ステート管理
+    const mapRef = useRef(null); // マップの参照
+    const [mapBounds, setMapBounds] = useState(null); // 地図の表示範囲
+  
+    // 🔥 ユーザー情報関連
+    const [userLocation, setUserLocation] = useState(null);
+    const [userLocationIcon, setUserLocationIcon] = useState(null); // 現在地アイコン
+    const [center, setCenter] = useState({ lat: 35.6895, lng: 139.6917 });
+    const [zoom, setZoom] = useState(14);
+  
+    // 🔥 データ管理
+    const [hydrants, setHydrants] = useState([]); // 消火栓リスト
+    const [visibleHydrants, setVisibleHydrants] = useState([]); // 画面内の消火栓
+    const [checkedList, setCheckedList] = useState([]); // チェックリスト
+  
+    // 🔥 UI関連
+    const [mode, setMode] = useState("点検"); // ✅ モード管理
+    const [isModeMenuOpen, setIsModeMenuOpen] = useState(false); // ✅ モードメニュー開閉
+    const [isDialogOpen, setIsDialogOpen] = useState(false); // ダイアログの開閉
+    const [dialogMessage, setDialogMessage] = useState(""); // 表示するメッセージ
+    const [dialogAction, setDialogAction] = useState(null); // 確定時の処理
+    const [isListOpen, setIsListOpen] = useState(false); // リストの開閉状態
+    const [selectedLocation, setSelectedLocation] = useState(null); // クリック位置を一時保存
+    const [showSelection, setShowSelection] = useState(false); // 選択UIの表示フラグ
+    const [mapCenter, setMapCenter] = useState(null);
+
+    const updateUserLocation = () => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const newLocation = { lat: latitude, lng: longitude };
+          console.log("✅ 現在地取得:", newLocation);
+          
+          setUserLocation(newLocation); // 現在地を保存
+          setMapCenter(newLocation); // 🔥 マップの中心を現在地にする
+        },
+        (error) => {
+          console.error("🚨 現在地の取得に失敗:", error);
+        },
+        { enableHighAccuracy: true }
+      );
+    };
+
+
+    // 🔥 地図の範囲変更を検知
+    const handleBoundsChanged = () => {
+      if (!mapRef.current) return;
+      const bounds = mapRef.current.getBounds();
+      setMapBounds(bounds);
+    };
+  
+    // 🔥 現在地を取得し、マップの中心を更新する
+useEffect(() => {
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      const newLocation = { lat: latitude, lng: longitude };
+      console.log("✅ 現在地取得:", newLocation);
+      
+      setUserLocation(newLocation); // 現在地を保存
+      setMapCenter(newLocation); // 🔥 現在地をマップの中心にする
+    },
+    (error) => {
+      console.error("🚨 現在地の取得に失敗:", error);
+      setMapCenter({ lat: 35.3363, lng: 139.3032 }); // 🔥 失敗した場合は伊勢原駅にする
+    },
+    { enableHighAccuracy: true }
+  );
+}, []); // 🔥 初回のみ実行
   
 
-  const handleBoundsChanged = () => {
-    if (!mapRef.current) return;
-    const bounds = mapRef.current.getBounds();
-    setMapBounds(bounds);
-  };
+  useEffect(() => {
+    if (!isLoaded || !window.google || !window.google.maps) {
+      console.warn("🚨 Google Maps API がまだロードされていない！");
+      return;
+    }
+    
+    setUserLocationIcon({
+      url: "https://maps.google.com/mapfiles/kml/shapes/man.png", // 🔥 人型アイコン
+      scaledSize: new window.google.maps.Size(50, 50), // 🔥 サイズ設定
+    });
 
-  const updateUserLocation = () => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const newLocation = { lat: latitude, lng: longitude };
-        setUserLocation(newLocation);
-        setCenter(newLocation);
-        setZoom(16);
-      },
-      (error) => console.error("現在地の取得に失敗しました:", error),
-      { enableHighAccuracy: true }
-    );
-  };
+    console.log("✅ 現在地アイコンを設定しました！");
+  }, [isLoaded]); // 🔥 `isLoaded` が true になったときに実行
+
 
   useEffect(() => {
     updateUserLocation();
   }, []);
 
+ // 🔥 Firestore から消火栓データを取得
   useEffect(() => {
-    const fetchHydrants = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "fire_hydrants"));
-        const data = querySnapshot.docs.map((doc) => {
-          const docData = doc.data(); // Firestore のデータを取得
-    
-          return {
-            ...docData,  // 🔥 まず Firestore のデータを展開
-            firestoreId: doc.id,  // 🔥 Firestore のドキュメントIDを `firestoreId` に設定
-            checked: docData.checked || false,  // 🔥 checked が undefined の場合は false にする
-          };
-        });
+  const fetchHydrants = async () => {
+    const querySnapshot = await getDocs(collection(db, "fire_hydrants"));
+    const data = querySnapshot.docs.map((doc) => {
+      const docData = doc.data();
+      return {
+        ...docData,
+        firestoreId: doc.id,  // 🔥 Firestore ID をセット
+        checked: docData.checked || false,
+      };
+    });
 
-        console.log("📌 Firestore から取得したデータ:", data); // 🔥 データ確認用
+    console.log("📌 Firestore から取得したデータ:", data);
 
-        setHydrants(data);
-
-        const checkedItems = data.filter(h => h.checked);
-        setCheckedList(checkedItems);
-      } catch (error) {
-        console.error("🚨 データ取得エラー:", error);
-      }
-    };
-    fetchHydrants();
-  }, []);
-
-  const handleMarkerDragEnd = (firestoreId, newLat, newLng, oldLat, oldLng) => {
-    setDialogMessage("ここに移動しますか？");
-    setDialogAction(() => () => confirmMoveMarker(firestoreId, newLat, newLng));
-    setIsDialogOpen(true);
+    // 🔥 すでに `visibleHydrants` にあるものを再セットしない
+    setHydrants(prev => isEqual(prev, data) ? prev : data);
   };
 
-   // 1km 以内のマーカーだけフィルタリング
-   const filteredHydrants = hydrants.filter(hydrant => {
-    const distance = haversine(userLocation, { lat: hydrant.lat, lng: hydrant.lon });
-    return distance <= 1000; // 1000m (1km)
+  fetchHydrants();
+}, []);
+
+// ✅ 1km 以内の消火栓をフィルタリング（無駄な処理を減らす）
+const updateVisibleHydrants = debounce(() => {
+  if (!mapCenter || hydrants.length === 0) return;
+
+  console.time("1km フィルタ処理");
+
+  const filteredHydrants = hydrants.filter(hydrant => {
+    if (Math.abs(hydrant.lat - mapCenter.lat) > 0.01 || 
+        Math.abs(hydrant.lon - mapCenter.lng) > 0.01) return false;
+    return haversine(mapCenter, { lat: hydrant.lat, lng: hydrant.lon }) <= 1000;
   });
 
-  useEffect(() => {
-    if (!userLocation || hydrants.length === 0) return;
-  
-    // userLocation に応じた処理（必要ならここで何かする）
-  
-  }, [userLocation, hydrants]); // 依存リスト
-  
-  useEffect(() => {
-    if (!mapBounds || hydrants.length === 0) return;
-  
-    // mapBounds 内にある消火栓をフィルタリング
-    const visibleHydrants = hydrants.filter(hydrant => {
-      const latLng = new window.google.maps.LatLng(hydrant.lat, hydrant.lon);
-      return mapBounds.contains(latLng);
-    });
-  
-    setVisibleHydrants(visibleHydrants);
-  }, [mapBounds, hydrants]); // 依存リスト
-  
-  const confirmMoveMarker = async (firestoreId, newLat, newLng) => {
+  console.timeEnd("1km フィルタ処理");
+  console.log(`✅ 1km 以内の消火栓数: ${filteredHydrants.length}`);
+
+  // 🔥 `isEqual` を使って無駄な更新を防ぐ
+  setVisibleHydrants(prev => isEqual(prev, filteredHydrants) ? prev : filteredHydrants);
+
+}, 1000); // 1秒遅延
+
+// 🔥 `mapCenter` が変わったら更新
+useEffect(() => {
+  updateVisibleHydrants();
+}, [mapCenter, hydrants]);
+
+const memoizedVisibleHydrants = useMemo(() => {
+  return visibleHydrants.map((hydrant) => ({
+    key: hydrant.firestoreId,
+    position: { lat: hydrant.lat, lng: hydrant.lon },
+  }));
+}, [visibleHydrants]); // 🔥 `visibleHydrants` が変わったときのみ更新！
+
+
+// ✅ マップの中心が変わったら `mapCenter` を更新
+const handleMapCenterChanged = debounce(() => {
+  if (!mapRef.current) return;
+  const newCenter = mapRef.current.getCenter();
+  console.log("🔥 マップの中心が変更された:", newCenter.lat(), newCenter.lng());
+
+  // 🔥 無駄なレンダリングを防ぐ
+  setMapCenter(prev => 
+    prev.lat === newCenter.lat() && prev.lng === newCenter.lng() 
+      ? prev 
+      : { lat: newCenter.lat(), lng: newCenter.lng() }
+  );
+}, 500); // 500ms 遅延
+
+
+const confirmMoveMarker = async (firestoreId, newLat, newLng) => {
     try {
       const hydrantRef = doc(db, "fire_hydrants", firestoreId);
       await updateDoc(hydrantRef, { lat: newLat, lon: newLng });
@@ -268,8 +324,6 @@ const handleCheckHydrant = async (firestoreId) => {
   }
 };
 
-
-
   const handleResetCheckedList = () => {
     if (mode !== "点検") {
       // 🔥 点検モード以外ならエラーダイアログを表示
@@ -337,15 +391,17 @@ const handleCheckHydrant = async (firestoreId) => {
   return (
     <div style={{ position: "relative" }}>
       <GoogleMap
+      
       mapContainerStyle={{
         width: "100vw",   // 🔥 画面いっぱいにマップを表示
         height: "100vh",  // 🔥 画面全体をマップにする
       }}
-       center={center}
+       center={mapCenter || { lat: 35.3363, lng: 139.3032 }}
        zoom={15}
        onClick={(e) => handleMapClick(e)}
        onLoad={onMapLoad}
        onBoundsChanged={handleBoundsChanged}
+       onCenterChanged={handleMapCenterChanged}
        options={{
         disableDefaultUI: true,       // 🔥 すべてのUIを非表示
         zoomControl: false,           // 🔥 ズームボタン（+,-）を消す
@@ -357,26 +413,15 @@ const handleCheckHydrant = async (firestoreId) => {
         maxZoom: 18,                   // 🔥 ズームインしすぎないよう制限
       }}
 >
-  <MarkerClustererF>
-    {(clusterer) =>
-      visibleHydrants.map((hydrant) => (
-        <MarkerF
-          key={hydrant.firestoreId}
-          position={{ lat: hydrant.lat, lng: hydrant.lon }}
-          clusterer={clusterer} // 🔥 クラスターに追加！
-        />
-      ))
-    }
-  </MarkerClustererF>
       <CustomDialog 
        isOpen={isDialogOpen} 
        message={dialogMessage} 
        onConfirm={dialogAction} 
        onCancel={() => setIsDialogOpen(false)} 
       />                                
-{userLocation && (
-  <MarkerF position={userLocation} icon={userLocationIcon} />
-)}
+{userLocation && userLocationIcon && (
+    <MarkerF position={userLocation} icon={userLocationIcon} />
+  )}
 
 {showSelection && (
   <div style={{
