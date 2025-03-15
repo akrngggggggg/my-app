@@ -438,9 +438,122 @@ const handleResetCheckedList = () => {
   };
   
   return (
-    <div style={{ position: "relative" }}>
-      <GoogleMap
-      
+        <div>
+        {/* 🔥 ここにタイトル + 現在地ボタン + モード選択を追加 */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "10px 15px",
+          backgroundColor: "#2c3e50",
+          color: "white",
+          fontSize: "24px",
+          fontWeight: "bold"
+        }}>
+          <span>消火栓マップ</span>
+    
+          {/* 🔥 ボタンエリア（現在地 & モード選択） */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {/* 🔘 現在地へ戻るボタン */}
+            <button onClick={updateUserLocation} style={{
+              padding: "10px 15px",
+              backgroundColor: "#FFC107",
+              color: "#000",
+              fontSize: "14px",
+              fontWeight: "bold",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+              boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)"
+            }}>
+              現在地へ戻る
+            </button>
+    
+{/* 🔘 モード切替ボタン */}
+<div 
+  style={{
+    position: "relative", // ✅ メニューをこのボタン基準で配置する
+    display: "flex",
+    alignItems: "center",
+    gap: "10px"
+  }}
+>
+  <button 
+    onClick={() => setIsModeMenuOpen(!isModeMenuOpen)}
+    style={{
+      padding: "10px 15px",
+      fontSize: "16px",
+      borderRadius: "8px",
+      border: "none",
+      backgroundColor: mode === "点検" ? "#4CAF50" : mode === "移動" ? "#2196F3" : "#FF5722", 
+      color: "white",
+      cursor: "pointer",
+      textAlign: "center"
+    }}
+  >
+    現在のモード: {mode} ▼
+  </button>
+
+  {/* 🔥 モード選択メニュー（縦並び & 選択後に閉じる） */}
+  {isModeMenuOpen && (
+    <div style={{
+      position: "absolute",
+      top: "45px", // 🔥 ボタンの下に配置
+      right: "0px", 
+      background: "white",
+      borderRadius: "5px",
+      boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
+      zIndex: 1000,
+      padding: "5px",
+      display: "flex",
+      flexDirection: "column", // ✅ 縦並びに変更
+      gap: "5px" // ボタン間の隙間
+    }}>
+      <button 
+        onClick={() => { setMode("点検"); setIsModeMenuOpen(false); }} // ✅ 選択後に閉じる
+        style={{
+          padding: "10px",
+          minWidth: "150px",
+          backgroundColor: mode === "点検" ? "#388E3C" : "#4CAF50",
+          color: "white",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "center"
+        }}
+      >点検モード</button>
+
+      <button 
+        onClick={() => { setMode("移動"); setIsModeMenuOpen(false); }} // ✅ 選択後に閉じる
+        style={{
+          padding: "10px",
+          minWidth: "150px",
+          backgroundColor: mode === "移動" ? "#1976D2" : "#2196F3",
+          color: "white",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "center"
+        }}
+      >マーカー移動モード</button>
+
+      <button 
+        onClick={() => { setMode("追加削除"); setIsModeMenuOpen(false); }} // ✅ 選択後に閉じる
+        style={{
+          padding: "10px",
+          minWidth: "150px",
+          backgroundColor: mode === "追加削除" ? "#D84315" : "#FF5722",
+          color: "white",
+          border: "none",
+          cursor: "pointer",
+          textAlign: "center"
+        }}
+      >追加削除モード</button>
+    </div>
+  )}
+</div>
+</div>
+</div>
+
+    <GoogleMap
        mapContainerStyle={mapContainerStyle}
        center={mapCenter || { lat: 35.3363, lng: 139.3032 }}
        zoom={18}
@@ -520,78 +633,9 @@ const handleResetCheckedList = () => {
   />
 ))}
 
-      </GoogleMap>
+</GoogleMap>
 
-     {/* 🔘 モード切替UI */}
-<div 
-  style={{
-    position: "absolute",
-    top: "10px",
-    right: "10px",
-    padding: "15px",  // ⬆ クリック範囲を広げる
-    borderRadius: "10px",
-    boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
-    ...getModeStyle(),
-    cursor: "pointer",
-    fontSize: "18px", // ⬆ 文字を大きくする
-    minWidth: "150px", // ⬆ 最小幅を設定（幅が狭くならないように）
-    textAlign: "center" // ⬆ 中央揃え
-  }}
-  onClick={() => setIsModeMenuOpen(!isModeMenuOpen)}
->
-  <h3 style={{ margin: 0, fontSize: "18px" }}>現在のモード: {mode} ▼</h3>
-  {isModeMenuOpen && (
-    <div style={{
-      display: "flex", flexDirection: "column", gap: "10px", // ⬆ ボタンの間隔を広げる
-      padding: "10px"
-    }}>
-      <button 
-        onClick={() => setMode("点検")} 
-        style={{
-          padding: "12px", fontSize: "16px", borderRadius: "8px", border: "none",
-          backgroundColor: "#4CAF50", color: "white", cursor: "pointer"
-        }}
-      >点検モード</button>
-      <button 
-        onClick={() => setMode("移動")} 
-        style={{
-          padding: "12px", fontSize: "16px", borderRadius: "8px", border: "none",
-          backgroundColor: "#2196F3", color: "white", cursor: "pointer"
-        }}
-      >マーカー移動モード</button>
-      <button 
-        onClick={() => setMode("追加削除")} 
-        style={{
-          padding: "12px", fontSize: "16px", borderRadius: "8px", border: "none",
-          backgroundColor: "#FF5722", color: "white", cursor: "pointer"
-        }}
-      >追加削除モード</button>
-    </div>
-  )}
-</div>
-
-
-    {/* 🔘 現在地に戻るボタン */}
-<button onClick={updateUserLocation} style={{
-  position: "absolute",
-  bottom: "20px",    // 画面下から20pxの位置
-  left: "50%",       // 左端を50%に
-  transform: "translateX(-50%)",  // ボタンの中心をX軸方向にずらす
-  padding: "10px 15px",
-  backgroundColor: "#4285F4",
-  color: "white",
-  fontSize: "14px",
-  fontWeight: "bold",
-  border: "none",
-  borderRadius: "5px",
-  cursor: "pointer",
-  boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)"
-}}>
-  現在地に戻る
-</button>
-
-
-      {/* 🔘 リストのトグルボタン */}
+    {/* 🔘 リストのトグルボタン */}
     <button 
       onClick={() => setIsListOpen(!isListOpen)} 
       style={{
