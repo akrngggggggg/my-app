@@ -4,7 +4,7 @@ import MapView from "./MapView"; // ✅ MapView コンポーネントをイン�
 const App = () => {
   return (
     <div>
-      <h1>Fire Hydrant Map</h1>
+      <h1>消火栓マップ</h1>
       <MapView /> {/* 🔥 地図を表示するコンポーネント */}
     </div>
   );

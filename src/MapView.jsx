@@ -12,8 +12,8 @@ import { useRef } from "react"; // useRef をインポート
 import { debounce, isEqual } from "lodash"; 
 
 const mapContainerStyle = {
-  width: "100%",
-  height: "100vh",
+  width: "100vw",
+  height: `calc(100vh - env(safe-area-inset-bottom, 50px))`, // 🔥 ノッチとタブを考慮
 };
 
 const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
@@ -50,7 +50,7 @@ const MapView = () => {
     const [userLocation, setUserLocation] = useState(null);
     const [userLocationIcon, setUserLocationIcon] = useState(null); // 現在地アイコン
     const [center, setCenter] = useState({ lat: 35.6895, lng: 139.6917 });
-    const [zoom, setZoom] = useState(14);
+    const [zoom, setZoom] = useState(18);
   
     // 🔥 データ管理
     const [hydrants, setHydrants] = useState([]); // 消火栓リスト
@@ -133,22 +133,28 @@ useEffect(() => {
   }, []);
 
  // 🔥 Firestore から消火栓データを取得
-  useEffect(() => {
+ useEffect(() => {
   const fetchHydrants = async () => {
-    const querySnapshot = await getDocs(collection(db, "fire_hydrants"));
-    const data = querySnapshot.docs.map((doc) => {
-      const docData = doc.data();
-      return {
-        ...docData,
-        firestoreId: doc.id,  // 🔥 Firestore ID をセット
-        checked: docData.checked || false,
-      };
-    });
+    try {
+      const querySnapshot = await getDocs(collection(db, "fire_hydrants"));
+      const data = querySnapshot.docs.map((doc) => {
+        const docData = doc.data();
+        
+        return {
+          ...docData,
+          firestoreId: doc.id,
+          icon: docData.type === "消火栓" 
+            ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"  // 🔴 消火栓は赤
+            : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png", // 🔵 防火水槽は青
+        };
+      });
 
-    console.log("📌 Firestore から取得したデータ:", data);
+      console.log("📌 Firestore から取得したデータ:", data); // 🔥 デバッグ用
 
-    // 🔥 すでに `visibleHydrants` にあるものを再セットしない
-    setHydrants(prev => isEqual(prev, data) ? prev : data);
+      setHydrants(data);
+    } catch (error) {
+      console.error("🚨 Firestore 取得エラー:", error);
+    }
   };
 
   fetchHydrants();
@@ -202,26 +208,33 @@ const handleMapCenterChanged = debounce(() => {
 }, 500); // 500ms 遅延
 
 
+const handleMarkerDragEnd = (firestoreId, newLat, newLng, oldLat, oldLng) => {
+  setDialogMessage("ここに移動しますか？");
+  setDialogAction(() => () => confirmMoveMarker(firestoreId, newLat, newLng));
+  setIsDialogOpen(true);
+};
+
 const confirmMoveMarker = async (firestoreId, newLat, newLng) => {
-    try {
-      const hydrantRef = doc(db, "fire_hydrants", firestoreId);
-      await updateDoc(hydrantRef, { lat: newLat, lon: newLng });
-  
-      setHydrants((prevHydrants) =>
-        prevHydrants.map((hydrant) =>
-          hydrant.firestoreId === firestoreId
-            ? { ...hydrant, lat: newLat, lon: newLng }
-            : hydrant
-        )
-      );
-  
-      console.log(`📍 移動完了: ID=${firestoreId}, 新座標=(${newLat}, ${newLng})`);
-    } catch (error) {
-      console.error("🚨 移動エラー:", error);
-    }
-  
-    setIsDialogOpen(false);
-  };
+  try {
+    const hydrantRef = doc(db, "fire_hydrants", firestoreId);
+    await updateDoc(hydrantRef, { lat: newLat, lon: newLng });
+
+    setHydrants((prevHydrants) =>
+      prevHydrants.map((hydrant) =>
+        hydrant.firestoreId === firestoreId
+          ? { ...hydrant, lat: newLat, lon: newLng }
+          : hydrant
+      )
+    );
+
+    console.log(`📍 移動完了: ID=${firestoreId}, 新座標=(${newLat}, ${newLng})`);
+  } catch (error) {
+    console.error("🚨 移動エラー:", error);
+  }
+
+  setIsDialogOpen(false);
+};
+
  
 const handleMapClick = (event) => {
   if (mode !== "追加削除") return;
@@ -237,21 +250,32 @@ const confirmAddMarker = async (type) => {
   if (!selectedLocation) return;
 
   try {
+    // 🔥 住所情報を取得
     const response = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${selectedLocation.lat},${selectedLocation.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
     );
     const data = await response.json();
     const address = data.results[0]?.formatted_address || "不明な住所";
 
+    // 🔥 アイコンをタイプごとに設定
+    const markerIcon = type === "消火栓" 
+      ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"  // 🔴 赤（消火栓）
+      : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"; // 🔵 青（防火水槽）
+
+    // 🔥 Firestore に保存するマーカー情報
     const newMarker = {
       lat: selectedLocation.lat,
       lon: selectedLocation.lng,
       type, 
       address,
-      checked: false, // 🔥 新規マーカーは未点検状態
+      checked: false,
+      icon: markerIcon, // 🔥 アイコン情報を保存
     };
 
+    // 🔥 Firestore に追加
     const docRef = await addDoc(collection(db, "fire_hydrants"), newMarker);
+
+    // 🔥 フロント側のデータも更新
     setHydrants([...hydrants, { firestoreId: docRef.id, ...newMarker }]);
 
     console.log(`✅ 追加完了: ${type} (${selectedLocation.lat}, ${selectedLocation.lng}) @ ${address}`);
@@ -262,6 +286,7 @@ const confirmAddMarker = async (type) => {
   setShowSelection(false);
   setSelectedLocation(null);
 };
+
 
 const handleMarkerDelete = (firestoreId, type) => {
   setDialogMessage(`この ${type} を削除しますか？`);
@@ -284,8 +309,24 @@ const confirmDeleteMarker = async (firestoreId) => {
   setIsDialogOpen(false);
 };
 
+const handleCheckHydrant = (firestoreId) => {
+  const hydrant = hydrants.find(h => h.firestoreId === firestoreId);
+  if (!hydrant) {
+    console.error(`🚨 該当の消火栓が見つからない ID=${firestoreId}`);
+    return;
+  }
 
-const handleCheckHydrant = async (firestoreId) => {
+  const isChecked = hydrant.checked || false;
+  const confirmationMessage = isChecked
+    ? "未点検に戻しますか？"
+    : "点検済みにしますか？";
+
+  setDialogMessage(confirmationMessage);
+  setDialogAction(() => () => confirmCheckHydrant(firestoreId, isChecked));
+  setIsDialogOpen(true);
+};
+
+const confirmCheckHydrant = async (firestoreId, isChecked) => {
   try {
     const hydrantRef = doc(db, "fire_hydrants", firestoreId);
     const hydrantDoc = await getDoc(hydrantRef);
@@ -296,7 +337,6 @@ const handleCheckHydrant = async (firestoreId) => {
     }
 
     const hydrantData = hydrantDoc.data();
-    const currentChecked = hydrantData.checked || false;
 
     // 🔥 同じ座標のマーカーをすべて取得
     const sameLocationHydrants = hydrants.filter(h => 
@@ -306,25 +346,34 @@ const handleCheckHydrant = async (firestoreId) => {
     // 🔥 Firestore のデータを更新（すべてのマーカー）
     for (const hydrant of sameLocationHydrants) {
       const ref = doc(db, "fire_hydrants", hydrant.firestoreId);
-      await updateDoc(ref, { checked: !currentChecked });
+      await updateDoc(ref, { checked: !isChecked });
     }
 
     // 🔥 フロント側のデータも更新
     setHydrants(prevHydrants =>
       prevHydrants.map(h =>
         h.lat === hydrantData.lat && h.lon === hydrantData.lon
-          ? { ...h, checked: !currentChecked }
+          ? { ...h, checked: !isChecked }
           : h
       )
     );
 
-    console.log(`✅ チェック完了: (${hydrantData.lat}, ${hydrantData.lon}) のマーカーを更新`);
+    // 🔥 チェック済みリストを更新
+    setCheckedList(prev =>
+      prev.filter(h => h.firestoreId !== firestoreId).concat(
+        !isChecked ? sameLocationHydrants.map(h => ({ ...h, checked: true })) : []
+      )
+    );
+
+    console.log(`✅ 状態変更: (${hydrantData.lat}, ${hydrantData.lon}) のマーカーを ${isChecked ? "未点検に戻しました" : "点検済みにしました"}`);
   } catch (error) {
     console.error("🚨 Firestore 更新エラー:", error);
   }
+
+  setIsDialogOpen(false); // 🔥 ダイアログを閉じる
 };
 
-  const handleResetCheckedList = () => {
+const handleResetCheckedList = () => {
     if (mode !== "点検") {
       // 🔥 点検モード以外ならエラーダイアログを表示
       setDialogMessage("⚠️ 点検モードでのみリセットできます。");
@@ -392,25 +441,22 @@ const handleCheckHydrant = async (firestoreId) => {
     <div style={{ position: "relative" }}>
       <GoogleMap
       
-      mapContainerStyle={{
-        width: "100vw",   // 🔥 画面いっぱいにマップを表示
-        height: "100vh",  // 🔥 画面全体をマップにする
-      }}
+       mapContainerStyle={mapContainerStyle}
        center={mapCenter || { lat: 35.3363, lng: 139.3032 }}
-       zoom={15}
+       zoom={18}
        onClick={(e) => handleMapClick(e)}
        onLoad={onMapLoad}
        onBoundsChanged={handleBoundsChanged}
        onCenterChanged={handleMapCenterChanged}
        options={{
-        disableDefaultUI: true,       // 🔥 すべてのUIを非表示
-        zoomControl: false,           // 🔥 ズームボタン（+,-）を消す
-        streetViewControl: false,     // 🔥 ストリートビューを消す
-        mapTypeControl: false,        // 🔥 「Map / Satellite」ボタンを消す
-        fullscreenControl: false,      // 🔥 フルスクリーンボタンを消す
-        gestureHandling: "greedy",     // 🔥 タッチ操作を優先（ピンチズームやドラッグ移動を有効化）
-        minZoom: 10,                   // 🔥 ズームアウトしすぎないよう制限
-        maxZoom: 18,                   // 🔥 ズームインしすぎないよう制限
+       disableDefaultUI: true,       // 🔥 すべてのUIを非表示
+       zoomControl: false,           // 🔥 ズームボタン（+,-）を消す
+       streetViewControl: false,     // 🔥 ストリートビューを消す
+       mapTypeControl: false,        // 🔥 「Map / Satellite」ボタンを消す
+       fullscreenControl: false,      // 🔥 フルスクリーンボタンを消す
+       gestureHandling: "greedy",     // 🔥 タッチ操作を優先（ピンチズームやドラッグ移動を有効化）
+       minZoom: 14,                   // 🔥 ズームアウトしすぎないよう制限
+       maxZoom: 20,                   // 🔥 ズームインしすぎないよう制限
       }}
 >
       <CustomDialog 
@@ -444,37 +490,36 @@ const handleCheckHydrant = async (firestoreId) => {
 
 {visibleHydrants.map((hydrant) => (
   <MarkerF
-  key={hydrant.firestoreId}
-  position={{ lat: hydrant.lat, lng: hydrant.lon }}
-  draggable={mode === "移動"}
-  onDragEnd={(e) => 
-    handleMarkerDragEnd(
-      hydrant.firestoreId, 
-      e.latLng.lat(), 
-      e.latLng.lng(), 
-      hydrant.lat, 
-      hydrant.lon
-    )
-  }
-  onClick={() => {
-    if (mode === "点検") {
-      handleCheckHydrant(hydrant.firestoreId);
-    } else if (mode === "追加削除") {
-      handleMarkerDelete(hydrant.firestoreId, hydrant.type);
+    key={hydrant.firestoreId}
+    position={{ lat: hydrant.lat, lng: hydrant.lon }}
+    draggable={mode === "移動"}
+    onDragEnd={(e) => 
+      handleMarkerDragEnd(
+        hydrant.firestoreId, 
+        e.latLng.lat(), 
+        e.latLng.lng(), 
+        hydrant.lat, 
+        hydrant.lon
+      )
     }
-  }}
-  icon={{
-    url: hydrant.checked
-      ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
-      : hydrant.type === "公設消火栓"
-      ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
-      : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-    scaledSize: new window.google.maps.Size(40, 40),
-  }}
-/>
-
-
+    onClick={() => {
+      if (mode === "点検") {
+        handleCheckHydrant(hydrant.firestoreId);
+      } else if (mode === "追加削除") {
+        handleMarkerDelete(hydrant.firestoreId, hydrant.type);
+      }
+    }}
+    icon={{
+      url: hydrant.checked
+        ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"  // ✅ チェック済みなら緑
+        : hydrant.type.includes("消火栓")  // ✅ ここを "公設消火栓" ではなく "消火栓" にすると汎用的
+        ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"  // 🔴 消火栓は赤
+        : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png", // 🔵 防火水槽は青
+      scaledSize: isLoaded ? new window.google.maps.Size(40, 40) : undefined,  // ✅ isLoaded で安全チェック
+    }}
+  />
 ))}
+
       </GoogleMap>
 
      {/* 🔘 モード切替UI */}
