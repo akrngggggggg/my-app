@@ -11,7 +11,14 @@ const firebaseConfig = {
   appId: process.env.VITE_FIREBASE_APP_ID || import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+let db;
 
-export { db };  // ← これで Firebase のデータベースをエクスポートしている
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  console.log("🔥 Firebase が正常に初期化されました！");
+} catch (error) {
+  console.error("🚨 Firebase の初期化に失敗しました:", error);
+}
+
+export { db };
