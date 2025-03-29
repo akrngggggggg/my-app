@@ -5,7 +5,7 @@ import {
   useJsApiLoader,
 } from "@react-google-maps/api";
 import { collection, getDocs, doc, updateDoc, getDoc, addDoc, deleteDoc } from "firebase/firestore";
-import db from "./firebase";
+import { db } from "../firebase";
 import haversine from "haversine-distance"; // 距離計算用
 import { debounce, isEqual } from "lodash"; 
 
