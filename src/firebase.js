@@ -11,14 +11,7 @@ const firebaseConfig = {
   appId: process.env.VITE_FIREBASE_APP_ID || import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-let app;
-try {
-  app = initializeApp(firebaseConfig);
-  console.log("✅ Firebase Initialized Successfully");
-} catch (error) {
-  console.error("🔥 Firebase Initialization Error: ", error);
-}
-
+const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-export { db };
+export { db };  // ← これでOK
