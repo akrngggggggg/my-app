@@ -11,7 +11,8 @@ const firebaseConfig = {
   appId: process.env.VITE_FIREBASE_APP_ID || import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+// 🔥 Firebase アプリの初期化が重複しないようにする（安全対策）
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-export { db };
+export default db;

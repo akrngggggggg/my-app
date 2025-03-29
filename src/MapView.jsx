@@ -30,8 +30,7 @@ const MapView = () => {
     const [mapBounds, setMapBounds] = useState(null); // 地図の表示範囲
   
     // 🔥 ユーザー情報関連
-    const [userLocation, setUserLocation] = useState(null);
-    const [loading, setLoading] = useState(true);
+    //const [userLocation, setUserLocation] = useState(null);
     const [userLocationIcon, setUserLocationIcon] = useState(null); // 現在地アイコン
     const [center, setCenter] = useState({ lat: 35.6895, lng: 139.6917 });
     const [zoom, setZoom] = useState(18);
@@ -97,33 +96,24 @@ const MapView = () => {
       setMapBounds(bounds);
     };
   
-    useEffect(() => {
-      console.log("✅ API Key: ", import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
-      console.log("✅ Firebase Project ID: ", import.meta.env.VITE_FIREBASE_PROJECT_ID);
-      console.log("✅ Is Loaded: ", isLoaded);
-    }, [isLoaded]);
-
     // 🔥 現在地を取得し、マップの中心を更新する
-    useEffect(() => {
-      if (!isLoaded) return;
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation({ lat: latitude, lng: longitude });
-          setLoading(false); // 位置情報取得完了
-        },
-        (error) => {
-          console.error("位置情報の取得に失敗しました:", error);
-          setUserLocation({ lat: 35.3363, lng: 139.3032 }); // 🔥 失敗した場合は伊勢原駅にする
-          setLoading(false); // エラー時もロード終了
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    }, [isLoaded]);
-  
-    if (!isLoaded || loading || !userLocation) {
-      return <div>Loading...</div>; // ローディング表示
-    }
+useEffect(() => {
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      const newLocation = { lat: latitude, lng: longitude };
+      console.log("✅ 現在地取得:", newLocation);
+      
+      setUserLocation(newLocation); // 現在地を保存
+      setMapCenter(newLocation); // 🔥 現在地をマップの中心にする
+    },
+    (error) => {
+      console.error("🚨 現在地の取得に失敗:", error);
+      setMapCenter({ lat: 35.3363, lng: 139.3032 }); // 🔥 失敗した場合は伊勢原駅にする
+    },
+    { enableHighAccuracy: true }
+  );
+}, []); // 🔥 初回のみ実行
   
  useEffect(() => {
     if (!isLoaded || !window.google || !window.google.maps) {
