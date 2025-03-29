@@ -49,6 +49,7 @@ const MapView = () => {
     const [selectedLocation, setSelectedLocation] = useState(null); // クリック位置を一時保存
     const [showSelection, setShowSelection] = useState(false); // 選択UIの表示フラグ
     const [mapCenter, setMapCenter] = useState(null);
+    const [loading, setLoading] = useState(true);
     const addressManagerRef = useRef(null);
     const [isManualAddressMode, setIsManualAddressMode] = useState(false);
 
@@ -97,40 +98,35 @@ const MapView = () => {
       setMapBounds(bounds);
     };
   
-    // 🔥 現在地を取得し、マップの中心を更新する
-useEffect(() => {
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const { latitude, longitude } = position.coords;
-      const newLocation = { lat: latitude, lng: longitude };
-      console.log("✅ 現在地取得:", newLocation);
-      
-      setUserLocation(newLocation); // 現在地を保存
-      setMapCenter(newLocation); // 🔥 現在地をマップの中心にする
-    },
-    (error) => {
-      console.error("🚨 現在地の取得に失敗:", error);
-      setMapCenter({ lat: 35.3363, lng: 139.3032 }); // 🔥 失敗した場合は伊勢原駅にする
-    },
-    { enableHighAccuracy: true }
-  );
-}, []); // 🔥 初回のみ実行
+    useEffect(() => {
+      if (!isLoaded || !window.google || !window.google.maps) {
+        console.warn("🚨 Google Maps API がまだロードされていない！");
+        return;
+      }
   
-
-  useEffect(() => {
-    if (!isLoaded || !window.google || !window.google.maps) {
-      console.warn("🚨 Google Maps API がまだロードされていない！");
-      return;
-    }
-    
-    setUserLocationIcon({
-      url: "https://maps.google.com/mapfiles/kml/shapes/man.png", // 🔥 人型アイコン
-      scaledSize: new window.google.maps.Size(50, 50), // 🔥 サイズ設定
-    });
-
-    console.log("✅ 現在地アイコンを設定しました！");
-  }, [isLoaded]); // 🔥 `isLoaded` が true になったときに実行
-
+      const fetchLocation = () => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            const newLocation = { lat: latitude, lng: longitude };
+            console.log("✅ 現在地取得:", newLocation);
+  
+            setUserLocation(newLocation);
+            setMapCenter(newLocation);
+            setLoading(false); // 🔥 ローディング完了
+          },
+          (error) => {
+            console.error("🚨 現在地の取得に失敗:", error);
+            setMapCenter({ lat: 35.3363, lng: 139.3032 });
+            setLoading(false); // 🔥 エラー時もローディング完了扱いにする
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      };
+  
+      fetchLocation();
+    }, [isLoaded]);
+  
 
   useEffect(() => {
     updateUserLocation();
@@ -174,6 +170,43 @@ const handleMapClick = (event) => {
   setSelectedLocation({ lat: newLat, lng: newLng });
   setShowSelection(true);
 };
+
+if (loading || !isLoaded) { // 🔥 読み込み中の表示条件
+  return (
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100vw",
+      height: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "#ffffff",
+      zIndex: 9999
+    }}>
+      <div style={{ textAlign: "center" }}>
+        <div className="loader" style={{
+          border: "6px solid #f3f3f3",
+          borderRadius: "50%",
+          borderTop: "6px solid #3498db",
+          width: "50px",
+          height: "50px",
+          animation: "spin 1s linear infinite",
+          marginBottom: "10px"
+        }}></div>
+        <p style={{ fontSize: "18px", color: "#333" }}>読み込み中...</p>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
 
 if (!isLoaded) return <div>Loading...</div>;
   
@@ -252,9 +285,15 @@ if (!isLoaded) return <div>Loading...</div>;
        onConfirm={dialogAction} 
        onCancel={() => setIsDialogOpen(false)} 
       />     
-{userLocation && userLocationIcon && (
-    <MarkerF position={userLocation} icon={userLocationIcon} />
-  )}                                 
+ {userLocation && (
+        <MarkerF 
+          position={userLocation}
+          icon={{
+            url: "https://maps.google.com/mapfiles/kml/shapes/man.png",
+            scaledSize: new window.google.maps.Size(40, 40)
+          }}
+        />
+      )}                           
 
 {showSelection && (
   <div style={{
