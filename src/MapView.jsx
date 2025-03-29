@@ -98,10 +98,11 @@ const MapView = () => {
     };
   
     useEffect(() => {
-      console.log("✅ Google Maps API Key: ", import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+      console.log("✅ API Key: ", import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+      console.log("✅ Firebase Project ID: ", import.meta.env.VITE_FIREBASE_PROJECT_ID);
       console.log("✅ Is Loaded: ", isLoaded);
     }, [isLoaded]);
-    
+
     // 🔥 現在地を取得し、マップの中心を更新する
     useEffect(() => {
       if (!isLoaded) return;
