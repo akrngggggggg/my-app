@@ -1,6 +1,6 @@
 import React from "react";
 import { doc, updateDoc, addDoc, deleteDoc, getDoc, collection } from "firebase/firestore";
-import { db } from "./firebase"; 
+import { db } from "../firebase"; 
 
 const MarkerManager = ({ hydrants, setHydrants, setIsDialogOpen, setDialogMessage, setDialogAction }) => {
   
