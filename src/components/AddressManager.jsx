@@ -12,6 +12,7 @@ const AddressManager = forwardRef(({ selectedLocation, setSelectedLocation,
     if (!selectedLocation || isAdding) return; // 🔥 追加中なら何もしない
 
     setIsAdding(true); // 🔥 処理中状態にする
+    console.log(`📌 Adding marker of type: ${type}`);
 
     try {
       const response = await fetch(
@@ -74,7 +75,8 @@ const AddressManager = forwardRef(({ selectedLocation, setSelectedLocation,
         <div style={{
           position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
           backgroundColor: "white", padding: "15px", borderRadius: "8px",
-          boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)", textAlign: "center"
+          boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)", textAlign: "center",
+          zIndex: 9999
         }}>
           <button 
             onClick={() => confirmAddMarker("消火栓")}
