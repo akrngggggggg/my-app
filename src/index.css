@@ -5,6 +5,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden; /* 🔥 スクロールを無効化 */
+  height: 100vh; /* 🔥 ビューポート全体を占める */
 }
 
 code {
