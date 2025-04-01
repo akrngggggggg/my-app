@@ -57,6 +57,7 @@ const MapView = () => {
     // 🔥 `MarkerManager` を使う
     const { handleMarkerDragEnd, handleMarkerDelete } = MarkerManager({
     hydrants,
+    setCheckedList,
     setHydrants,
     setIsDialogOpen,
     setDialogMessage,

@@ -2,7 +2,7 @@ import React from "react";
 import { doc, updateDoc, addDoc, deleteDoc, getDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
 
-const MarkerManager = ({ hydrants, setHydrants, setIsDialogOpen, setDialogMessage, setDialogAction }) => {
+const MarkerManager = ({ hydrants, setHydrants, setCheckedList, setIsDialogOpen, setDialogMessage, setDialogAction }) => {
   
   // 🔥 マーカーを移動
   const handleMarkerDragEnd = (firestoreId, newLat, newLng) => {
@@ -41,9 +41,16 @@ const MarkerManager = ({ hydrants, setHydrants, setIsDialogOpen, setDialogMessag
 
   const confirmDeleteMarker = async (firestoreId) => {
     try {
+      // Firestore からマーカーを削除
       await deleteDoc(doc(db, "fire_hydrants", firestoreId));
 
+      // ローカルのマーカー一覧から削除
       setHydrants((prev) => prev.filter((h) => h.firestoreId !== firestoreId));
+
+      // 🔥 点検済みリストからも削除する
+      setCheckedList((prevCheckedList) =>
+        prevCheckedList.filter((h) => h.firestoreId !== firestoreId)
+      );
 
       console.log(`🗑️ 削除完了: ID=${firestoreId}`);
     } catch (error) {
