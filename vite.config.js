@@ -2,25 +2,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import fs from 'fs';
 
 export default defineConfig({
   plugins: [react()],
+  
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
   build: {
-    minify: false,
-    sourcemap: true,
+    minify: false,  // 🔥 エラーを確認するために一時的に無効化
+    sourcemap: true,  // 🔥 デバッグを容易にするために sourcemap を有効化
   },
-  server: {
-    host: '0.0.0.0',
-    port: 5173,
-    https: {
-      key: fs.readFileSync('localhost-key.pem'),
-      cert: fs.readFileSync('localhost-cert.pem'),
-    }
-  }
 });
