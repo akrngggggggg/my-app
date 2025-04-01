@@ -11,12 +11,16 @@ const AddressManager = forwardRef(({ selectedLocation, setSelectedLocation,
     if (!selectedLocation) return;
 
     try {
+      console.log("📌 APIキー:", import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${selectedLocation.lat},${selectedLocation.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
       );
-      const data = await response.json();
-      let address = data.results[0]?.formatted_address || "不明な住所";
 
+      const data = await response.json();
+      console.log("📌 Geocoding Data:", data);
+
+      let address = data.results[0]?.formatted_address || "不明な住所";
       console.log("📌 取得した住所:", address);
 
       if (address === "不明な住所") {
@@ -24,15 +28,20 @@ const AddressManager = forwardRef(({ selectedLocation, setSelectedLocation,
         return;
       }
 
+      console.log("📍 Firestore 保存処理を開始します。");
       await saveMarkerToFirestore(type, address);
+      console.log("✅ Firestore 保存処理が完了しました。");
     } catch (error) {
       console.error("🚨 住所取得エラー:", error);
       setIsManualAddressMode(true);
     }
   };
 
+
   const saveMarkerToFirestore = async (type, address) => {
     try {
+      console.log("🔥 Firestore 保存開始:", { type, address, location: selectedLocation }); // 🔥 Firestore 保存データの確認
+
       const markerIcon = type === "消火栓" 
         ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
         : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png";
@@ -49,7 +58,7 @@ const AddressManager = forwardRef(({ selectedLocation, setSelectedLocation,
       const docRef = await addDoc(collection(db, "fire_hydrants"), newMarker);
       setHydrants([...hydrants, { firestoreId: docRef.id, ...newMarker }]);
 
-      console.log(`✅ 追加完了: ${type} @ ${address}`);
+      console.log(`✅ Firestore 保存完了: ${type} @ ${address}`); // 🔥 Firestore 保存完了の確認
     } catch (error) {
       console.error("🚨 Firestore 追加エラー:", error);
     }
@@ -59,10 +68,12 @@ const AddressManager = forwardRef(({ selectedLocation, setSelectedLocation,
     setIsManualAddressMode(false);
   };
 
+
   useEffect(() => {
     console.log("🔥 isManualAddressMode:", isManualAddressMode);
   }, [isManualAddressMode]);
 
+ 
   // 🔥 `MapView.jsx` から `confirmAddMarker` を操作可能にする！
   useImperativeHandle(ref, () => ({
     confirmAddMarker,
@@ -109,6 +120,7 @@ const AddressManager = forwardRef(({ selectedLocation, setSelectedLocation,
           </button>
         </div>
       )}
+      
     </>
   );
 });

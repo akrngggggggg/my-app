@@ -16,6 +16,7 @@ import ModeSwitcher from "./components/ModeSwitcher";
 import CheckListManager from "./components/CheckListManager";
 import AddressManager from "./components/AddressManager";
 
+
 const mapContainerStyle = {
   width: "100vw",
   height: `calc(100vh - env(safe-area-inset-bottom, 50px))`, // 🔥 ノッチとタブを考慮
@@ -64,7 +65,14 @@ const MapView = () => {
 
     // 🔥 `CheckListManager` から関数を取得
     const { handleCheckHydrant, handleResetCheckedList } = CheckListManager({
-      checkedList, setCheckedList, hydrants, setHydrants, mode, setIsDialogOpen, setDialogMessage, setDialogAction
+      checkedList, 
+      setCheckedList, 
+      hydrants, 
+      setHydrants, 
+      mode, 
+      setIsDialogOpen, 
+      setDialogMessage, 
+      setDialogAction
     });
 
     const handleConfirmAddMarker = (type) => {
@@ -166,9 +174,62 @@ const handleMapClick = (event) => {
 
   const newLat = event.latLng.lat();
   const newLng = event.latLng.lng();
+  const newLocation = { lat: newLat, lng: newLng };
 
-  setSelectedLocation({ lat: newLat, lng: newLng });
+  console.log("📌 クリック位置取得:", newLocation); // クリックした場所の座標を表示
+
+  setSelectedLocation(newLocation);
   setShowSelection(true);
+
+  if (addressManagerRef.current) {
+    console.log("📍 AddressManager が存在しています！");
+    addressManagerRef.current.confirmAddMarker("消火栓");
+  } else {
+    console.error("🚨 AddressManager が見つかりません！");
+  }
+};
+
+const fetchAddress = async (location) => {
+  if (!window.google || !window.google.maps) {
+    console.error("🚨 Google Maps API がロードされていません！");
+    return;
+  }
+
+  const geocoder = new window.google.maps.Geocoder();
+
+  geocoder.geocode({ location }, (results, status) => {
+    if (status === "OK" && results[0]) {
+      const address = results[0].formatted_address;
+      console.log("✅ 取得した住所:", address);
+    } else {
+      console.error("🚨 住所の取得に失敗しました。Status:", status);
+    }
+  });
+};
+
+const confirmAddMarker = async (type) => {
+  if (!selectedLocation) {
+    console.error("🚨 選択された場所が存在しません！");
+    return;
+  }
+
+  const { lat, lng } = selectedLocation;
+
+  // 住所を取得してから保存する
+  await fetchAddress({ lat, lng });
+
+  const newHydrant = {
+    type,
+    lat,
+    lng,
+    checked: false,
+    address: "取得中...", // 住所を取得できた後に更新する
+  };
+
+  setHydrants([...hydrants, newHydrant]);
+  setShowSelection(false);
+
+  console.log("✅ 新しい消火栓を追加しました！", newHydrant);
 };
 
 if (loading || !isLoaded) { // 🔥 読み込み中の表示条件
@@ -339,11 +400,13 @@ if (!isLoaded) return <div>Loading...</div>;
     }
     onClick={() => {
       if (mode === "点検") {
+        console.log("✅ 点検モードでクリック。ID:", hydrant.firestoreId);
         handleCheckHydrant(hydrant.firestoreId);
       } else if (mode === "追加削除") {
         handleMarkerDelete(hydrant.firestoreId, hydrant.type);
       }
     }}
+
     icon={{
       url: hydrant.checked
         ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"  // ✅ チェック済みなら緑
@@ -387,6 +450,7 @@ if (!isLoaded) return <div>Loading...</div>;
       transition: "left 0.3s ease-in-out"
     }}>
       <h3 style={{ fontSize: "16px", textAlign: "center" }}>✔ 点検済みリスト</h3>
+      
       {checkedList.slice(0, 10).map((hydrant, index) => (
         <div key={index} style={{ padding: "5px", borderBottom: "1px solid #ccc", fontSize: "14px" }}>
           {hydrant.address}

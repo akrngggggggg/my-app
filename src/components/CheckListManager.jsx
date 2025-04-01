@@ -1,8 +1,49 @@
-import React from "react";
-import { doc, updateDoc, getDoc } from "firebase/firestore";
+import React, { useEffect } from "react";
+import { doc, updateDoc, getDoc, getDocs, collection } from "firebase/firestore";
 import { db } from "../firebase";
 
-const CheckListManager = ({ checkedList, setCheckedList, hydrants, setHydrants, mode, setIsDialogOpen, setDialogMessage, setDialogAction }) => {
+const CheckListManager = ({ 
+  checkedList, 
+  setCheckedList, 
+  hydrants, 
+  setHydrants, 
+  mode, 
+  setIsDialogOpen, 
+  setDialogMessage, 
+  setDialogAction 
+}) => {
+
+  // 🔥 画面ロード時にチェック済みリストを取得する
+  useEffect(() => {
+    const fetchCheckedHydrants = async () => {
+      try {
+        const hydrantCollection = collection(db, "fire_hydrants");
+        const hydrantSnapshot = await getDocs(hydrantCollection);
+        
+        const checkedHydrants = [];
+        const allHydrants = hydrantSnapshot.docs.map(doc => {
+          const data = doc.data();
+          const firestoreId = doc.id;
+          const isChecked = data.checked || false;
+
+          // 🔍 チェック済みのアイテムをリストに追加
+          if (isChecked) {
+            const filteredAddress = data.address.replace(/^.*?伊勢原市/, '伊勢原市');
+            checkedHydrants.push({ ...data, firestoreId, address: filteredAddress });
+          }
+          
+          return { ...data, firestoreId };
+        });
+
+        setHydrants(allHydrants);
+        setCheckedList(checkedHydrants); // 🔥 チェック済みリストをセット
+      } catch (error) {
+        console.error("🚨 Firestore 読み取りエラー:", error);
+      }
+    };
+
+    fetchCheckedHydrants();
+  }, [setCheckedList, setHydrants]); // 初回読み込み時にだけ実行
 
   // 🔥 消火栓の点検状態を切り替える
   const handleCheckHydrant = (firestoreId) => {
@@ -13,9 +54,7 @@ const CheckListManager = ({ checkedList, setCheckedList, hydrants, setHydrants, 
     }
 
     const isChecked = hydrant.checked || false;
-    const confirmationMessage = isChecked
-      ? "未点検に戻しますか？"
-      : "点検済みにしますか？";
+    const confirmationMessage = isChecked ? "未点検に戻しますか？" : "点検済みにしますか？";
 
     setDialogMessage(confirmationMessage);
     setDialogAction(() => () => confirmCheckHydrant(firestoreId, isChecked));
@@ -34,77 +73,22 @@ const CheckListManager = ({ checkedList, setCheckedList, hydrants, setHydrants, 
 
       const hydrantData = hydrantDoc.data();
 
-      // 🔥 同じ座標のマーカーをすべて取得
-      const sameLocationHydrants = hydrants.filter(h => 
-        h.lat === hydrantData.lat && h.lon === hydrantData.lon
-      );
+      await updateDoc(hydrantRef, { checked: !isChecked });
 
-      // 🔥 Firestore のデータを更新（すべてのマーカー）
-      for (const hydrant of sameLocationHydrants) {
-        const ref = doc(db, "fire_hydrants", hydrant.firestoreId);
-        await updateDoc(ref, { checked: !isChecked });
-      }
-
-      // 🔥 フロント側のデータも更新
       setHydrants(prevHydrants =>
         prevHydrants.map(h =>
-          h.lat === hydrantData.lat && h.lon === hydrantData.lon
-            ? { ...h, checked: !isChecked }
-            : h
+          h.firestoreId === firestoreId ? { ...h, checked: !isChecked } : h
         )
       );
 
-      // 🔥 チェック済みリストを更新
-      setCheckedList(prev =>
-        prev.filter(h => h.firestoreId !== firestoreId).concat(
-          !isChecked ? sameLocationHydrants.map(h => ({ ...h, checked: true })) : []
-        )
-      );
-
-      console.log(`✅ 状態変更: (${hydrantData.lat}, ${hydrantData.lon}) のマーカーを ${isChecked ? "未点検に戻しました" : "点検済みにしました"}`);
-    } catch (error) {
-      console.error("🚨 Firestore 更新エラー:", error);
-    }
-
-    setIsDialogOpen(false);
-  };
-
-  // 🔥 チェックリストをリセットする
-  const handleResetCheckedList = () => {
-    if (mode !== "点検") {
-      setDialogMessage("⚠️ 点検モードでのみリセットできます。");
-      setDialogAction(() => () => setIsDialogOpen(false));
-      setIsDialogOpen(true);
-      return;
-    }
-
-    if (!checkedList || checkedList.length === 0) {
-      setDialogMessage("⚠️ リセットするチェック済みの消火栓がありません。");
-      setDialogAction(() => () => setIsDialogOpen(false));
-      setIsDialogOpen(true);
-      return;
-    }
-
-    setDialogMessage("本当にすべてのチェックをリセットしますか？");
-    setDialogAction(() => confirmResetCheckedList);
-    setIsDialogOpen(true);
-  };
-
-  const confirmResetCheckedList = async () => {
-    try {
-      for (const hydrant of checkedList) {
-        if (!hydrant.firestoreId) continue;
-
-        const hydrantRef = doc(db, "fire_hydrants", hydrant.firestoreId);
-        await updateDoc(hydrantRef, { checked: false });
+      if (!isChecked) {
+        const filteredAddress = hydrantData.address.replace(/^.*?伊勢原市/, '伊勢原市');
+        setCheckedList(prev => [...prev, { ...hydrantData, firestoreId, address: filteredAddress }]);
+      } else {
+        setCheckedList(prev => prev.filter(h => h.firestoreId !== firestoreId));
       }
 
-      setHydrants(prevHydrants =>
-        prevHydrants.map(hydrant => ({ ...hydrant, checked: false }))
-      );
-
-      setCheckedList([]);
-      console.log("🔄 全てのチェックをリセットしました");
+      console.log(`✅ 状態変更: ${isChecked ? "未点検に戻しました" : "点検済みにしました"}`);
     } catch (error) {
       console.error("🚨 Firestore 更新エラー:", error);
     }
@@ -112,7 +96,7 @@ const CheckListManager = ({ checkedList, setCheckedList, hydrants, setHydrants, 
     setIsDialogOpen(false);
   };
 
-  return { handleCheckHydrant, handleResetCheckedList };
+  return { handleCheckHydrant };
 };
 
 export default CheckListManager;
