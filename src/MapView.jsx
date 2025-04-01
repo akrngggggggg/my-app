@@ -426,7 +426,7 @@ if (!isLoaded) return <div>Loading...</div>;
     <button 
       onClick={() => setIsListOpen(!isListOpen)} 
       style={{
-        position: "absolute", left: isListOpen ? "280px" : "10px", top: "50%", 
+        position: "absolute", left: isListOpen ? "280px" : "10px", top: "85%", 
         transform: "translateY(-50%)",
         width: "40px",  // ボタンを横に広げる
         height: "100px", // 縦長にする
@@ -448,12 +448,12 @@ if (!isLoaded) return <div>Loading...</div>;
       position: "absolute", left: isListOpen ? "0px" : "-300px", bottom: "10px",
       width: "260px", backgroundColor: "rgba(255, 255, 255, 0.9)", padding: "10px",
       borderRadius: "8px", boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
-      maxHeight: "250px", overflowY: "auto",minHeight: "600px",
+      maxHeight: "250px", overflowY: "auto",
       transition: "left 0.3s ease-in-out"
     }}>
       <h3 style={{ fontSize: "16px", textAlign: "center" }}>✔ 点検済みリスト</h3>
       
-      {checkedList.slice(0, 10).map((hydrant, index) => (
+      {checkedList.map((hydrant, index) => (
         <div key={index} style={{ padding: "5px", borderBottom: "1px solid #ccc", fontSize: "14px" }}>
           {hydrant.address}
         </div>
