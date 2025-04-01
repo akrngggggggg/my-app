@@ -47,27 +47,6 @@ const CheckListManager = ({
     fetchCheckedHydrants();
   }, [setCheckedList, setHydrants]); // 初回読み込み時にだけ実行
 
-  const handleMarkerDelete = async (firestoreId, type) => {
-    try {
-      // Firestore からマーカーを削除
-      const markerRef = doc(db, "fire_hydrants", firestoreId);
-      await deleteDoc(markerRef);
-  
-      // ローカルのマーカー一覧からも削除
-      setHydrants(prevHydrants => prevHydrants.filter(h => h.firestoreId !== firestoreId));
-  
-      // 🔥 点検済みリスト (checkedList) からも削除
-      setCheckedList(prevCheckedList => 
-        prevCheckedList.filter(h => h.firestoreId !== firestoreId)
-      );
-  
-      console.log(`🔥 マーカーが削除されました。FirestoreID: ${firestoreId}`);
-    } catch (error) {
-      console.error("🚨 マーカー削除エラー:", error);
-    }
-  };
-  
-
   // 🔥 全てリセットする関数
   const handleResetCheckedList = () => {
     if (mode !== "点検") { // 🔑 点検モードでなければエラーダイアログを表示

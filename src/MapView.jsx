@@ -35,6 +35,7 @@ const MapView = () => {
     const [userLocationIcon, setUserLocationIcon] = useState(null); // 現在地アイコン
     const [center, setCenter] = useState({ lat: 35.6895, lng: 139.6917 });
     const [zoom, setZoom] = useState(18);
+    const [heading, setHeading] = useState(null);
   
     // 🔥 データ管理
     const [hydrants, setHydrants] = useState([]); // 消火栓リスト
@@ -82,23 +83,24 @@ const MapView = () => {
       }
     };
     
-    const updateUserLocation = () => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          const newLocation = { lat: latitude, lng: longitude };
-          console.log("✅ 現在地取得:", newLocation);
-          
-          setUserLocation(newLocation); // 現在地を保存
-          setMapCenter(newLocation); // 🔥 マップの中心を現在地にする
-        },
-        (error) => {
-          console.error("🚨 現在地の取得に失敗:", error);
-        },
-        { enableHighAccuracy: true }
-      );
-    };
+// 🔥 現在地を取得しながら `heading` も更新
+const updateUserLocation = () => {
+  if (navigator.geolocation) {
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, heading } = position.coords;
+        const newLocation = { lat: latitude, lng: longitude };
 
+        setUserLocation(newLocation); // 現在地を更新
+        setHeading(heading); // 🔥 ユーザーの向きを更新
+      },
+      (error) => console.error("🚨 Geolocation error:", error),
+      { enableHighAccuracy: true }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }
+};
 
     // 🔥 地図の範囲変更を検知
     const handleBoundsChanged = () => {
@@ -347,15 +349,37 @@ if (!isLoaded) return <div>Loading...</div>;
        onConfirm={dialogAction} 
        onCancel={() => setIsDialogOpen(false)} 
       />     
- {userLocation && (
-        <MarkerF 
-          position={userLocation}
-          icon={{
-            url: "https://maps.google.com/mapfiles/kml/shapes/man.png",
-            scaledSize: new window.google.maps.Size(40, 40)
-          }}
+// 🔥 現在地を表示するマーカーを追加
+{userLocation && (
+  <>
+    {/* 青丸アイコン */}
+    <MarkerF 
+      position={userLocation}
+      icon={{
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: "#4285F4",
+        fillOpacity: 0.6,
+        strokeWeight: 2,
+      }}
+    />
+
+    {/* 向きを示す矢印アイコン */}
+    {heading !== null && (
+      <MarkerF 
+        position={userLocation}
+        icon={{
+          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 5,
+          rotation: heading,
+          fillColor: "red",
+          fillOpacity: 0.8,
+          strokeWeight: 1,
+        }}
         />
-      )}                           
+      )}
+    </>
+  )}                         
 
 {showSelection && (
   <div style={{
