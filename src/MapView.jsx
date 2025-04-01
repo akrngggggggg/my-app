@@ -93,6 +93,7 @@ const updateUserLocation = () => {
 
         setUserLocation(newLocation); // 現在地を更新
         setHeading(heading); // 🔥 ユーザーの向きを更新
+        mapRef.current.panTo(newLocation); // 🔥 現在地へ戻るボタンで地図を移動させる
       },
       (error) => console.error("🚨 Geolocation error:", error),
       { enableHighAccuracy: true }
@@ -295,20 +296,30 @@ if (!isLoaded) return <div>Loading...</div>;
     
           {/* 🔥 ボタンエリア（現在地 & モード選択） */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {/* 🔘 現在地へ戻るボタン */}
-            <button onClick={updateUserLocation} style={{
-              padding: "10px 15px",
-              backgroundColor: "#FFC107",
-              color: "#000",
-              fontSize: "14px",
-              fontWeight: "bold",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-              boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)"
-            }}>
-              現在地へ戻る
-            </button>
+
+{/* 🔘 現在地へ戻るボタン */}
+<button onClick={() => {
+    if (userLocation && mapRef.current) {
+        mapRef.current.panTo(userLocation); // 🔥 現在地に地図を移動
+        mapRef.current.setZoom(17); // 🔥 適当なズームレベルに設定
+    } else {
+        updateUserLocation(); // 🔥 現在地の取得を再実行
+    }
+}} 
+style={{
+    padding: "10px 15px",
+    backgroundColor: "#FFC107",
+    color: "#000",
+    fontSize: "14px",
+    fontWeight: "bold",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer",
+    boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
+ }}>
+  現在地へ戻る
+</button>
+
    <ModeSwitcher mode={mode} setMode={setMode} />
 </div>
 </div>
