@@ -15,13 +15,6 @@ const CheckListManager = ({
 
   const [dialogProcessing, setDialogProcessing] = useState(false);
 
-    // 🔥 住所をクリックした時の処理
-    const handleAddressClick = (lat, lon) => {
-      if (moveToLocation) {
-        moveToLocation(lat, lon); // 🔥 マップを指定の場所に移動
-      }
-    };
-
   // 🔥 画面ロード時にチェック済みリストを取得する
   useEffect(() => {
     const fetchCheckedHydrants = async () => {

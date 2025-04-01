@@ -17,26 +17,37 @@ const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
 
   return (
     <div style={{
-      position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
-      backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex",
-      justifyContent: "center", alignItems: "center"
+      position: "fixed", 
+      top: 0, 
+      left: 0, 
+      width: "100%", 
+      height: "100%",
+      backgroundColor: "rgba(0, 0, 0, 0.5)", 
+      display: "flex",
+      justifyContent: "center", 
+      alignItems: "center",
+      zIndex: 9999 // 🔥 最前面に表示するための z-index 設定
     }}>
       <div style={{
-        backgroundColor: "white", padding: "20px", borderRadius: "8px",
-        textAlign: "center", boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)"
+        backgroundColor: "white", 
+        padding: "20px", 
+        borderRadius: "8px",
+        textAlign: "center", 
+        boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
+        zIndex: 10000 // 🔥 ダイアログ自体の z-index をさらに高く設定
       }}>
         <h2>確認</h2>
         <p>{message}</p>
         <button 
           onClick={handleConfirm} 
           style={{ 
-            margin: "10px", padding: "15px 30px", // 🔑 ボタンを大きくする
+            margin: "10px", padding: "15px 30px",
             backgroundColor: dialogProcessing ? "gray" : "blue", 
             color: "white", border: "none", borderRadius: "8px", 
             cursor: dialogProcessing ? "not-allowed" : "pointer",
-            fontSize: "16px" // 🔑 フォントサイズも少し大きくする
+            fontSize: "16px"
           }}
-          disabled={dialogProcessing} // 🔑 処理中はボタンを無効化
+          disabled={dialogProcessing}
         >
           OK
         </button>
