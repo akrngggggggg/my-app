@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { doc, updateDoc, getDoc, getDocs, collection } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -12,6 +12,15 @@ const CheckListManager = ({
   setDialogMessage, 
   setDialogAction 
 }) => {
+
+  const [dialogProcessing, setDialogProcessing] = useState(false);
+
+    // 🔥 住所をクリックした時の処理
+    const handleAddressClick = (lat, lon) => {
+      if (moveToLocation) {
+        moveToLocation(lat, lon); // 🔥 マップを指定の場所に移動
+      }
+    };
 
   // 🔥 画面ロード時にチェック済みリストを取得する
   useEffect(() => {
@@ -44,6 +53,52 @@ const CheckListManager = ({
 
     fetchCheckedHydrants();
   }, [setCheckedList, setHydrants]); // 初回読み込み時にだけ実行
+
+  // 🔥 全てリセットする関数
+  const handleResetCheckedList = () => {
+    if (mode !== "点検") { // 🔑 点検モードでなければエラーダイアログを表示
+      setDialogMessage("⚠️ 点検モードでのみリセットできます。");
+      setDialogAction(() => () => setIsDialogOpen(false));
+      setIsDialogOpen(true);
+      return;
+    }
+
+    setDialogMessage("本当にすべてのチェックをリセットしますか？");
+    setDialogAction(() => confirmResetCheckedList);
+    setIsDialogOpen(true);
+  };
+
+  const confirmResetCheckedList = async () => {
+    if (dialogProcessing) return;
+
+    setDialogProcessing(true);
+
+    try {
+      const hydrantCollection = collection(db, "fire_hydrants");
+      const hydrantSnapshot = await getDocs(hydrantCollection);
+
+      const allHydrants = hydrantSnapshot.docs.map(doc => ({ ...doc.data(), firestoreId: doc.id }));
+
+      const checkedHydrants = allHydrants.filter(hydrant => hydrant.checked === true);
+
+      // 🔥 Firestore の `checked` フィールドを全て false にする
+      for (const hydrant of checkedHydrants) {
+        const hydrantRef = doc(db, "fire_hydrants", hydrant.firestoreId);
+        await updateDoc(hydrantRef, { checked: false });
+      }
+
+      // 🔥 React の状態を更新
+      setCheckedList([]);
+      setHydrants(prevHydrants => prevHydrants.map(h => ({ ...h, checked: false })));
+
+      console.log("🔄 全ての点検済みをリセットしました");
+    } catch (error) {
+      console.error("🚨 全てリセットエラー:", error);
+    }
+
+    setDialogProcessing(false);
+    setIsDialogOpen(false);
+  };
 
   // 🔥 消火栓の点検状態を切り替える
   const handleCheckHydrant = (firestoreId) => {
@@ -96,7 +151,7 @@ const CheckListManager = ({
     setIsDialogOpen(false);
   };
 
-  return { handleCheckHydrant };
+  return { handleCheckHydrant, handleResetCheckedList };
 };
 
 export default CheckListManager;
