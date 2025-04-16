@@ -122,9 +122,12 @@ const handleSafeReset = () => {
           const { latitude, longitude } = position.coords;
           const newLocation = { lat: latitude, lng: longitude };
           console.log("✅ 現在地取得:", newLocation);
-          
-          setUserLocation(newLocation); // 現在地を保存
-          setMapCenter(newLocation); // 🔥 マップの中心を現在地にする
+          setUserLocation(newLocation);
+        setMapCenter(newLocation);
+        if (mapRef.current) {
+          mapRef.current.panTo(newLocation);
+          mapRef.current.setZoom(19);
+         } // 🔥 マップの中心を現在地にする
         },
         (error) => {
           console.error("🚨 現在地の取得に失敗:", error);
