@@ -14,12 +14,14 @@ import { fetchHydrants } from "./data/HydrantData";
 import ModeSwitcher from "./components/ModeSwitcher";
 import CheckListManager from "./components/CheckListManager";
 import AddressManager from "./components/AddressManager";
+import { MarkerClusterer } from "@googlemaps/markerclusterer";
 
 const mapContainerStyle = {
   width: "100vw",
   height: "100vh",
   position: "fixed",
-  top: "60px", // ← ヘッダーの高さに合わせる
+  top: "0px", // ← ヘッダーの高さに合わせる
+  left: 0,
   zIndex: 0,
 };
 
@@ -78,6 +80,199 @@ const MapView = ({ division, section }) => {
         mapRef.current.setZoom(18);
       }
     };
+
+    
+    const onMapLoad = (map) => {
+      mapRef.current = map;
+      const center = map.getCenter();
+      setMapCenter({ lat: center.lat(), lng: center.lng() });
+      setZoom(map.getZoom());
+    
+      const radius = getRadiusByZoom(map.getZoom());
+      updateVisibleHydrants(center.toJSON(), hydrants, radius);
+    };
+    
+    const clustererRef = useRef(null); // ← グローバルに宣言（MapView コンポーネント内で）
+
+useEffect(() => {
+  if (!mapRef.current || !visibleHydrants.length) return;
+
+  const map = mapRef.current;
+
+  // 🔥 前の clusterer を破棄（残骸を消す）
+  if (clustererRef.current) {
+    clustererRef.current.clearMarkers(); // ← 🔥🔥🔥 これが最重要！！！
+  }
+
+  const markers = visibleHydrants
+    .filter(
+      (hydrant) =>
+        typeof hydrant.lat === "number" &&
+        typeof hydrant.lon === "number" &&
+        !isNaN(hydrant.lat) &&
+        !isNaN(hydrant.lon)
+    )
+    .map((hydrant) => {
+      try {
+        let iconUrl = "";
+        if (hydrant.checked && !hydrant.issue) {
+          iconUrl = "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
+        } else if (hydrant.checked && hydrant.issue) {
+          iconUrl = "/A_2D_vector_graphic_of_a_yellow_triangular_warning.png";
+        } else {
+          if (hydrant.type.includes("消火栓")) {
+            iconUrl = "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
+          } else if (hydrant.type.includes("防火水槽")) {
+            iconUrl = "http://maps.google.com/mapfiles/ms/icons/blue-dot.png";
+          }
+        }
+
+        const marker = new window.google.maps.Marker({
+          position: { lat: hydrant.lat, lng: hydrant.lon },
+          icon: {
+            url: iconUrl,
+            scaledSize: new window.google.maps.Size(40, 40),
+          },
+        });
+
+        marker.addListener("click", () => {
+          if (mode !== "点検") {
+            if (mode === "追加削除") {
+              handleMarkerDelete(hydrant.firestoreId, hydrant.type);
+            } else if (
+              hydrant.checked &&
+              hydrant.issue &&
+              hydrant.issue !== "異常なし"
+            ) {
+              alert(`📌 異常内容: ${hydrant.issue}`);
+            }
+            return;
+          }
+
+          setDialogSelectOptions([
+            "未点検に戻す",
+            "異常なし",
+            "水没",
+            "砂利・泥",
+            "その他",
+          ]);
+          setDialogSelectValue(hydrant.issue ?? "異常なし");
+          setDialogMessage("点検結果を選択してください");
+
+          const currentHydrantId = hydrant.firestoreId;
+          const currentHydrant = hydrant;
+
+          setDialogAction(() => async (selectedValue) => {
+            const checklistRef = doc(db, "checklists", `${division}-${section}`);
+
+            if (selectedValue === "未点検に戻す") {
+              await updateDoc(checklistRef, {
+                [currentHydrantId]: deleteField(),
+              });
+              setHydrants((prev) =>
+                prev.map((h) =>
+                  h.firestoreId === currentHydrantId
+                    ? { ...h, checked: false, issue: null }
+                    : h
+                )
+              );
+              setCheckedList((prev) =>
+                prev.filter((h) => h.firestoreId !== currentHydrantId)
+              );
+              setIsDialogOpen(false);
+              return;
+            }
+
+            const firestoreValue =
+              selectedValue === "異常なし"
+                ? true
+                : {
+                    checked: true,
+                    issue: selectedValue,
+                    lastUpdated: new Date().toISOString(),
+                  };
+
+            await setDoc(
+              checklistRef,
+              { [currentHydrantId]: firestoreValue },
+              { merge: true }
+            );
+
+            setHydrants((prev) =>
+              prev.map((h) =>
+                h.firestoreId === currentHydrantId
+                  ? {
+                      ...h,
+                      checked: true,
+                      issue:
+                        selectedValue === "異常なし" ? null : selectedValue,
+                      lastUpdated: new Date().toISOString(),
+                    }
+                  : h
+              )
+            );
+
+            setCheckedList((prev) => {
+              const exists = prev.some(
+                (h) => h.firestoreId === currentHydrantId
+              );
+              const newItem = {
+                ...currentHydrant,
+                checked: true,
+                issue: selectedValue === "異常なし" ? null : selectedValue,
+              };
+              return exists
+                ? prev.map((h) =>
+                    h.firestoreId === currentHydrantId ? newItem : h
+                  )
+                : [...prev, newItem];
+            });
+
+            setIsDialogOpen(false);
+          });
+
+          setIsDialogOpen(true);
+        });
+
+        return marker;
+      } catch (e) {
+        console.error("❌ マーカー作成失敗:", hydrant, e);
+        return undefined;
+      }
+    })
+    .filter((m) => m instanceof window.google.maps.Marker);
+
+  // 🔥 Clusterer を更新して保持
+  clustererRef.current = new MarkerClusterer({
+    map,
+    markers,
+  });
+}, [visibleHydrants, mode]);
+
+useEffect(() => {
+    if (!mapRef.current) return;
+  
+    const map = mapRef.current;
+  
+    map.addListener("zoom_changed", () => {
+      const currentCenter = map.getCenter();
+      setMapCenter({ lat: currentCenter.lat(), lng: currentCenter.lng() });
+  
+      const currentZoom = map.getZoom();
+      setZoom(currentZoom);
+      const radius = getRadiusByZoom(currentZoom); // ← 修正
+      updateVisibleHydrants(currentCenter.toJSON(), hydrants, radius);
+    });
+  
+    map.addListener("dragend", () => {
+      const currentCenter = map.getCenter();
+      setMapCenter({ lat: currentCenter.lat(), lng: currentCenter.lng() });
+  
+      const currentZoom = map.getZoom();
+      const radius = getRadiusByZoom(currentZoom);
+      updateVisibleHydrants(currentCenter.toJSON(), hydrants, radius);
+    });
+  }, [hydrants]);
 
     // 🔥 `MarkerManager` を使う
     const { handleMarkerDragEnd, handleMarkerDelete } = MarkerManager({
@@ -161,7 +356,7 @@ const handleSafeReset = () => {
       setMapBounds(bounds);
     };
   
-    useEffect(() => {
+  useEffect(() => {
       if (!isLoaded || !window.google || !window.google.maps) {
         console.warn("🚨 Google Maps API がまだロードされていない！");
         return;
@@ -301,40 +496,15 @@ if (loading || !isLoaded) { // 🔥 読み込み中の表示条件
   );
 }
 
-const onMapLoad = (map) => {
-  mapRef.current = map;
-  const center = map.getCenter();
-  setMapCenter({ lat: center.lat(), lng: center.lng() });
 
-  const zoom = map.getZoom();
-  setZoom(zoom);
-  const radius = getRadiusByZoom(zoom);
-  updateVisibleHydrants(center.toJSON(), hydrants, radius);
-
-  map.addListener("zoom_changed", () => {
-    const currentCenter = map.getCenter();
-    setMapCenter({ lat: currentCenter.lat(), lng: currentCenter.lng() });
-
-    const currentZoom = map.getZoom();
-    setZoom(currentZoom);
-    const radius = getRadiusByZoom(zoom);
-    updateVisibleHydrants(currentCenter.toJSON(), hydrants, radius);
-  });
-
-  map.addListener("dragend", () => {
-    const currentCenter = map.getCenter();
-    setMapCenter({ lat: currentCenter.lat(), lng: currentCenter.lng() });
-
-    const zoom = map.getZoom();
-    const radius = getRadiusByZoom(zoom);
-    updateVisibleHydrants(currentCenter.toJSON(), hydrants, radius);
-  });
-};
-
-  return (
+ return (
         <div>
         {/* 🔥 ここにタイトル + 現在地ボタン + モード選択を追加 */}
         <div style={{
+          top: 0,               
+          left: 0,
+          right: 0,
+          zIndex: 1000,         
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -362,6 +532,7 @@ const onMapLoad = (map) => {
             }}>
               現在地へ戻る
             </button>
+            
    <ModeSwitcher mode={mode} setMode={setMode} />
 </div>
 </div>
@@ -441,149 +612,6 @@ const onMapLoad = (map) => {
     </button>
   </div>
 )}
-
-{visibleHydrants.map((hydrant) => {
-  const checked = hydrant.checked ?? false;
-  const issue = hydrant.issue ?? null;
-  const markerColor = getMarkerColor(hydrant.type, checked, issue);
-
-  const iconUrl = (() => {
-    if (checked && issue && issue !== "異常なし") {
-      return "/A_2D_vector_graphic_of_a_yellow_triangular_warning.png"; // ⚠️ アイコン使用
-    }
-    switch (markerColor) {
-      case "red": return "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
-      case "blue": return "http://maps.google.com/mapfiles/ms/icons/blue-dot.png";
-      case "navy": return "http://maps.google.com/mapfiles/ms/icons/ltblue-dot.png";
-      case "green": return "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
-      case "orange": return "http://maps.google.com/mapfiles/ms/icons/orange-dot.png";
-      case "purple": return "http://maps.google.com/mapfiles/ms/icons/purple-dot.png";
-      default: return "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png";
-    }
-  })();
-
-  return (
-    <MarkerF
-      key={hydrant.firestoreId}
-      position={{ lat: hydrant.lat, lng: hydrant.lon }}
-      draggable={mode === "移動"}
-      onDragEnd={(e) =>
-        handleMarkerDragEnd(
-          hydrant.firestoreId,
-          e.latLng.lat(),
-          e.latLng.lng(),
-          hydrant.lat,
-          hydrant.lon
-        )
-      }
-      onClick={() => {
-        if (mode !== "点検") {
-          // ✅ 点検以外の処理
-          if (mode === "追加削除") {
-            handleMarkerDelete(hydrant.firestoreId, hydrant.type);
-          } else if (checked && issue && issue !== "異常なし") {
-            alert(`📌 異常内容: ${issue}`);
-          }
-          return; // ✅ 点検モード以外はここで処理終了！
-        }
-      
-        // ✅ 点検モードだけがここまで進む
-        setDialogSelectOptions(["未点検に戻す", "異常なし", "水没", "砂利・泥", "その他"]);
-      
-        // 初期選択値の設定
-        if (!checked) {
-          setDialogSelectValue("異常なし");
-        } else if (issue) {
-          setDialogSelectValue(issue);
-        } else {
-          setDialogSelectValue("異常なし");
-        }
-      
-        setDialogMessage("点検結果を選択してください");
-      
-        const currentHydrantId = hydrant.firestoreId;
-        const currentHydrant = hydrant;
-      
-        setDialogAction(() => async (selectedValue) => {
-          const checklistRef = doc(db, "checklists", `${division}-${section}`);
-      
-          if (selectedValue === "未点検に戻す") {
-            await updateDoc(checklistRef, {
-              [currentHydrantId]: deleteField(),
-            });
-      
-            setHydrants((prev) =>
-              prev.map((h) =>
-                h.firestoreId === currentHydrantId
-                  ? { ...h, checked: false, issue: null }
-                  : h
-              )
-            );
-      
-            setCheckedList((prev) =>
-              prev.filter((h) => h.firestoreId !== currentHydrantId)
-            );
-      
-            setIsDialogOpen(false);
-            return;
-          }
-      
-          const firestoreValue =
-            selectedValue === "異常なし"
-              ? true
-              : {
-                  checked: true,
-                  issue: selectedValue,
-                  lastUpdated: new Date().toISOString(),
-                };
-      
-          await setDoc(
-            checklistRef,
-            { [currentHydrantId]: firestoreValue },
-            { merge: true }
-          );
-      
-          setHydrants((prev) =>
-            prev.map((h) =>
-              h.firestoreId === currentHydrantId
-                ? {
-                    ...h,
-                    checked: true,
-                    issue: selectedValue === "異常なし" ? null : selectedValue,
-                    lastUpdated: new Date().toISOString(),
-                  }
-                : h
-            )
-          );
-      
-          setCheckedList((prev) => {
-            const exists = prev.some((h) => h.firestoreId === currentHydrantId);
-            const newItem = {
-              ...currentHydrant,
-              checked: true,
-              issue: selectedValue === "異常なし" ? null : selectedValue,
-            };
-            return exists
-              ? prev.map((h) =>
-                  h.firestoreId === currentHydrantId ? newItem : h
-                )
-              : [...prev, newItem];
-          });
-      
-          setIsDialogOpen(false);
-        });
-      
-        setIsDialogOpen(true);
-      }}
-      
-      icon={{
-        url: iconUrl,
-        scaledSize: isLoaded ? new window.google.maps.Size(40, 40) : undefined,
-      }}
-    />
-  );
-})}
-
 
 </GoogleMap>
 
