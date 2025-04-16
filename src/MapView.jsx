@@ -10,7 +10,7 @@ import haversine from "haversine-distance";
 import { debounce, isEqual } from "lodash";
 import CustomDialog, { getMarkerColor } from "./components/CustomDialog";
 import MarkerManager from "./components/MarkerManager";
-import { fetchHydrants, updateVisibleHydrants } from "./data/HydrantData";
+import { fetchHydrants } from "./data/HydrantData";
 import ModeSwitcher from "./components/ModeSwitcher";
 import CheckListManager from "./components/CheckListManager";
 import AddressManager from "./components/AddressManager";
@@ -31,8 +31,6 @@ const MapView = ({ division, section }) => {
   
     // 🔥 ユーザー情報関連
     const [userLocation, setUserLocation] = useState(null);
-    const [userLocationIcon, setUserLocationIcon] = useState(null); // 現在地アイコン
-    const [center, setCenter] = useState({ lat: 35.6895, lng: 139.6917 });
     const [zoom, setZoom] = useState(18);
   
     // 🔥 データ管理
@@ -55,13 +53,28 @@ const MapView = ({ division, section }) => {
     const [dialogSelectOptions, setDialogSelectOptions] = useState([]);
     const [dialogSelectValue, setDialogSelectValue] = useState("異常なし");
 
+        const getRadiusByZoom = (zoom) => {
+      if (zoom >= 19) return 300;
+      if (zoom >= 17) return 600;
+      if (zoom >= 15) return 1000;
+      if (zoom >= 13) return 2000;
+      return 3000;
+    };
+ 
+    const updateVisibleHydrants = (center, hydrantsList, radius) => {
+      const nearby = hydrantsList.filter(h => {
+        const distance = haversine(center, { lat: h.lat, lng: h.lon });
+        return distance <= radius;
+      });
+      setVisibleHydrants(nearby);
+    };
+  
     const flyToLocation = (lat, lng) => {
       if (mapRef.current) {
         mapRef.current.panTo({ lat, lng });
-        mapRef.current.setZoom(19);
+        mapRef.current.setZoom(18);
       }
     };
-  
 
     // 🔥 `MarkerManager` を使う
     const { handleMarkerDragEnd, handleMarkerDelete } = MarkerManager({
@@ -109,6 +122,7 @@ const MapView = ({ division, section }) => {
 const handleSafeReset = () => {
   if (mode !== "点検") {
     setDialogMessage("リセットは点検モードでのみ可能です。");
+    setDialogSelectOptions([]);
     setDialogAction(null);
     setIsDialogOpen(true);
     return;
@@ -126,7 +140,7 @@ const handleSafeReset = () => {
         setMapCenter(newLocation);
         if (mapRef.current) {
           mapRef.current.panTo(newLocation);
-          mapRef.current.setZoom(19);
+          mapRef.current.setZoom(18);
          } // 🔥 マップの中心を現在地にする
         },
         (error) => {
@@ -179,36 +193,18 @@ const handleSafeReset = () => {
   }, []);
 
   useEffect(() => {
-    if (division && section) {
-      fetchHydrants(setHydrants, division, section);
-    }
-  }, [division, section]);
+  if (division && section) {
+    fetchHydrants(setHydrants, division, section);
+  } else {
+    console.warn("⚠️ division または section が未設定です！");
+  }
+}, [division, section]);
 
 useEffect(() => {
-  updateVisibleHydrants(mapCenter, hydrants, setVisibleHydrants);
-}, [mapCenter, hydrants]);
+  const radius = getRadiusByZoom(zoom); // ← 現在のズームに応じた距離を取得
+  updateVisibleHydrants(mapCenter, hydrants, radius);
+}, [mapCenter, hydrants, zoom]);
 
-const memoizedVisibleHydrants = useMemo(() => {
-  return visibleHydrants.map((hydrant) => ({
-    key: hydrant.firestoreId,
-    position: { lat: hydrant.lat, lng: hydrant.lon },
-  }));
-}, [visibleHydrants]); // 🔥 `visibleHydrants` が変わったときのみ更新！
-
-// ✅ マップの中心が変わったら `mapCenter` を更新
-const handleMapCenterChanged = debounce(() => {
-  if (!mapRef.current) return;
-  const newCenter = mapRef.current.getCenter();
-  console.log("🔥 マップの中心が変更された:", newCenter.lat(), newCenter.lng());
-
-  // 🔥 無駄なレンダリングを防ぐ
-  setMapCenter(prev => 
-    prev.lat === newCenter.lat() && prev.lng === newCenter.lng() 
-      ? prev 
-      : { lat: newCenter.lat(), lng: newCenter.lng() }
-  );
-}, 500); // 500ms 遅延
- 
 const handleMapClick = (event) => {
   if (mode !== "追加削除") return;
 
@@ -216,18 +212,12 @@ const handleMapClick = (event) => {
   const newLng = event.latLng.lng();
   const newLocation = { lat: newLat, lng: newLng };
 
-  console.log("📌 クリック位置取得:", newLocation); // クリックした場所の座標を表示
+  //console.log("📌 クリック位置取得:", newLocation); // クリックした場所の座標を表示
 
   setSelectedLocation(newLocation);
   setShowSelection(true);
 
-  if (addressManagerRef.current) {
-    console.log("📍 AddressManager が存在しています！");
-    addressManagerRef.current.confirmAddMarker("消火栓");
-  } else {
-    console.error("🚨 AddressManager が見つかりません！");
-  }
-};
+ };
 
 const fetchAddress = async (location) => {
   if (!window.google || !window.google.maps) {
@@ -308,13 +298,36 @@ if (loading || !isLoaded) { // 🔥 読み込み中の表示条件
   );
 }
 
+const onMapLoad = (map) => {
+  mapRef.current = map;
+  const center = map.getCenter();
+  setMapCenter({ lat: center.lat(), lng: center.lng() });
 
-if (!isLoaded) return <div>Loading...</div>;
-  
-  const onMapLoad = (map) => {
-    mapRef.current = map; // 🔥 Google Map のインスタンスを保存！
-  };
-  
+  const zoom = map.getZoom();
+  setZoom(zoom);
+  const radius = getRadiusByZoom(zoom);
+  updateVisibleHydrants(center.toJSON(), hydrants, radius);
+
+  map.addListener("zoom_changed", () => {
+    const currentCenter = map.getCenter();
+    setMapCenter({ lat: currentCenter.lat(), lng: currentCenter.lng() });
+
+    const currentZoom = map.getZoom();
+    setZoom(currentZoom);
+    const radius = getRadiusByZoom(zoom);
+    updateVisibleHydrants(currentCenter.toJSON(), hydrants, radius);
+  });
+
+  map.addListener("dragend", () => {
+    const currentCenter = map.getCenter();
+    setMapCenter({ lat: currentCenter.lat(), lng: currentCenter.lng() });
+
+    const zoom = map.getZoom();
+    const radius = getRadiusByZoom(zoom);
+    updateVisibleHydrants(currentCenter.toJSON(), hydrants, radius);
+  });
+};
+
   return (
         <div>
         {/* 🔥 ここにタイトル + 現在地ボタン + モード選択を追加 */}
@@ -368,7 +381,6 @@ if (!isLoaded) return <div>Loading...</div>;
        onClick={(e) => handleMapClick(e)}
        onLoad={onMapLoad}
        onBoundsChanged={handleBoundsChanged}
-       onCenterChanged={handleMapCenterChanged}
        options={{
        disableDefaultUI: true,       // 🔥 すべてのUIを非表示
        zoomControl: false,           // 🔥 ズームボタン（+,-）を消す
@@ -472,13 +484,10 @@ if (!isLoaded) return <div>Loading...</div>;
           return; // ✅ 点検モード以外はここで処理終了！
         }
       
-        // ✅ 点検モードのみ以下の処理を実行
-        console.log("✅ 点検モードでクリック。ID:", hydrant.firestoreId);
-      
-        // ダイアログ選択肢をセット
+        // ✅ 点検モードだけがここまで進む
         setDialogSelectOptions(["未点検に戻す", "異常なし", "水没", "砂利・泥", "その他"]);
       
-        // 初期選択値
+        // 初期選択値の設定
         if (!checked) {
           setDialogSelectValue("異常なし");
         } else if (issue) {
@@ -492,7 +501,6 @@ if (!isLoaded) return <div>Loading...</div>;
         const currentHydrantId = hydrant.firestoreId;
         const currentHydrant = hydrant;
       
-        // 確定時の処理をセット
         setDialogAction(() => async (selectedValue) => {
           const checklistRef = doc(db, "checklists", `${division}-${section}`);
       
@@ -520,9 +528,17 @@ if (!isLoaded) return <div>Loading...</div>;
           const firestoreValue =
             selectedValue === "異常なし"
               ? true
-              : { checked: true, issue: selectedValue, lastUpdated: new Date().toISOString() };
+              : {
+                  checked: true,
+                  issue: selectedValue,
+                  lastUpdated: new Date().toISOString(),
+                };
       
-          await setDoc(checklistRef, { [currentHydrantId]: firestoreValue }, { merge: true });
+          await setDoc(
+            checklistRef,
+            { [currentHydrantId]: firestoreValue },
+            { merge: true }
+          );
       
           setHydrants((prev) =>
             prev.map((h) =>
@@ -545,15 +561,17 @@ if (!isLoaded) return <div>Loading...</div>;
               issue: selectedValue === "異常なし" ? null : selectedValue,
             };
             return exists
-              ? prev.map((h) => h.firestoreId === currentHydrantId ? newItem : h)
+              ? prev.map((h) =>
+                  h.firestoreId === currentHydrantId ? newItem : h
+                )
               : [...prev, newItem];
           });
       
           setIsDialogOpen(false);
         });
       
-          setIsDialogOpen(true);
-       }}
+        setIsDialogOpen(true);
+      }}
       
       icon={{
         url: iconUrl,
@@ -571,7 +589,7 @@ if (!isLoaded) return <div>Loading...</div>;
     <button 
       onClick={() => setIsListOpen(!isListOpen)} 
       style={{
-        position: "absolute", left: isListOpen ? "280px" : "10px", top: "85%", 
+        position: "absolute", left: isListOpen ? "260px" : "10px", top: "85%", 
         transform: "translateY(-50%)",
         width: "40px",  // ボタンを横に広げる
         height: "100px", // 縦長にする
