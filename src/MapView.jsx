@@ -17,7 +17,10 @@ import AddressManager from "./components/AddressManager";
 
 const mapContainerStyle = {
   width: "100vw",
-  height: `calc(100vh - env(safe-area-inset-bottom, 50px))`, // 🔥 ノッチとタブを考慮
+  height: "100vh",
+  position: "fixed",
+  top: "60px", // ← ヘッダーの高さに合わせる
+  zIndex: 0,
 };
 
 const MapView = ({ division, section }) => {
