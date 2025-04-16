@@ -105,7 +105,17 @@ const MapView = ({ division, section }) => {
         addressManagerRef.current.confirmAddMarker(type);
       }
     };
-    
+    // ✅ 点検モードのみリセット許可（それ以外は警告表示）
+const handleSafeReset = () => {
+  if (mode !== "点検") {
+    setDialogMessage("リセットは点検モードでのみ可能です。");
+    setDialogAction(null);
+    setIsDialogOpen(true);
+    return;
+  }
+  handleResetCheckedList();
+};
+
     const updateUserLocation = () => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -630,7 +640,7 @@ if (!isLoaded) return <div>Loading...</div>;
 ))}
 
   {/* 🔘 全てリセットボタン */}
-  <button onClick={handleResetCheckedList}
+  <button onClick={handleSafeReset}
     style={{
       marginTop: "10px", width: "100%", padding: "8px",
       backgroundColor: "red", color: "white", border: "none",
