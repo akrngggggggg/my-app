@@ -1,24 +1,31 @@
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import haversine from "haversine-distance";
 import { debounce, isEqual } from "lodash";
 
 // 🔥 Firestore から消火栓データを取得
-export const fetchHydrants = async (setHydrants) => {
+export const fetchHydrants = async (setHydrants, division, section) => {
   try {
-    const querySnapshot = await getDocs(collection(db, "fire_hydrants"));
-    const data = querySnapshot.docs.map((doc) => {
+    const hydrantSnap = await getDocs(collection(db, "fire_hydrants"));
+    const checklistRef = doc(db, "checklists", `${division}-${section}`);
+    const checklistSnap = await getDoc(checklistRef);
+    const checklistData = checklistSnap.exists() ? checklistSnap.data() : {};
+
+    const data = hydrantSnap.docs.map((doc) => {
       const docData = doc.data();
+      const id = doc.id;
+      const checklistEntry = checklistData[id];
+
       return {
         ...docData,
-        firestoreId: doc.id,
-        icon: docData.type === "消火栓"
-          ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
-          : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+        firestoreId: id,
+        checked: checklistEntry === true ? true : checklistEntry?.checked ?? false,
+        issue: typeof checklistEntry === "object" ? checklistEntry?.issue ?? null : null,
+        lastUpdated: typeof checklistEntry === "object" ? checklistEntry?.lastUpdated ?? null : null,
       };
     });
 
-    console.log("📌 Firestore から取得したデータ:", data);
+    console.log("📌 Firestore から取得した hydrants + 点検情報:", data);
     setHydrants(data);
   } catch (error) {
     console.error("🚨 Firestore 取得エラー:", error);

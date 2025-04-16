@@ -1,31 +1,27 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getDatabase } from "firebase/database";
-import { getAuth, signInAnonymously } from "firebase/auth";
+// firebase.js
 
+// 必要な機能をインポート
+import { initializeApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+
+// Firebase の設定情報 (すでにあなたのものが設定されている)
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL // ✅ 追加：Realtime Database の URL
+  apiKey: "AIzaSyAS7b2Bp3Voswu4hI93IYx-N4BEUlsqrF4",
+  authDomain: "fire-hydrants-9d3f1.firebaseapp.com",
+  databaseURL: "https://fire-hydrants-9d3f1-default-rtdb.firebaseio.com",
+  projectId: "fire-hydrants-9d3f1",
+  storageBucket: "fire-hydrants-9d3f1.appspot.com",  // 修正: `firebasestorage.app` を `appspot.com` に変更
+  messagingSenderId: "658716195379",
+  appId: "1:658716195379:web:82edaccd3c06583be48146",
+  measurementId: "G-Q984BQ94N5"
 };
 
-// Firebase の初期化
+// Firebase を初期化
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const database = getDatabase(app);
-const auth = getAuth(app);
 
-// 匿名認証でサインイン
-signInAnonymously(auth)
-  .then(() => {
-    console.log("✅ 認証成功：匿名ユーザーとしてサインインしました");
-  })
-  .catch((error) => {
-    console.error("❌ 認証エラー：", error);
-  });
-
-export { db, database, auth };
+// Firebase の各サービスをエクスポート
+export const auth = getAuth(app);         // 認証機能
+export const db = getFirestore(app);      // Firestore データベース
+export const googleProvider = new GoogleAuthProvider();

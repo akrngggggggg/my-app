@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from "react";
+import L from "leaflet";
 
-const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
+const CustomDialog = ({
+  isOpen,
+  message,
+  onConfirm,
+  onCancel,
+  dialogSelectOptions = [],
+  dialogSelectValue,
+  setDialogSelectValue
+}) => {
   const [dialogProcessing, setDialogProcessing] = useState(false);
 
   useEffect(() => {
@@ -10,10 +19,12 @@ const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
   if (!isOpen) return null;
 
   const handleConfirm = () => {
-    if (dialogProcessing) return; // 処理中なら何もしない
-    setDialogProcessing(true); // 処理中にする
-    onConfirm(); // OKボタンの処理を実行
+    if (dialogProcessing) return;
+    setDialogProcessing(true);
+    onConfirm(dialogSelectValue); // ← ここで最新の値を渡す！
   };
+
+  const shouldShowSelect = dialogSelectOptions.length > 0;
 
   return (
     <div style={{
@@ -26,7 +37,7 @@ const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
       display: "flex",
       justifyContent: "center", 
       alignItems: "center",
-      zIndex: 9999 // 🔥 最前面に表示するための z-index 設定
+      zIndex: 9999
     }}>
       <div style={{
         backgroundColor: "white", 
@@ -34,10 +45,27 @@ const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
         borderRadius: "8px",
         textAlign: "center", 
         boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.2)",
-        zIndex: 10000 // 🔥 ダイアログ自体の z-index をさらに高く設定
+        zIndex: 10000
       }}>
         <h2>確認</h2>
         <p>{message}</p>
+
+        {shouldShowSelect && (
+          <div style={{ margin: "15px 0" }}>
+            <label htmlFor="issue-select" style={{ marginRight: "8px" }}>選択：</label>
+            <select
+              id="issue-select"
+              value={dialogSelectValue}
+              onChange={(e) => setDialogSelectValue(e.target.value)}
+              style={{ padding: "8px", fontSize: "16px", borderRadius: "4px" }}
+            >
+              {dialogSelectOptions.map((option, idx) => (
+                <option key={idx} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <button 
           onClick={handleConfirm} 
           style={{ 
@@ -63,6 +91,23 @@ const CustomDialog = ({ isOpen, message, onConfirm, onCancel }) => {
       </div>
     </div>
   );
+};
+
+export const getMarkerColor = (type, checked, issue) => {
+  if (!checked) {
+    // 未点検はタイプ別
+    return type.includes("水槽") ? "blue" : "red";
+  }
+
+  // 点検済み
+  if (!issue || issue === "異常なし") return "green";
+
+  switch (issue) {
+    case "水没": return "navy";
+    case "砂利・泥": return "orange";
+    case "その他": return "purple";
+    default: return "yellow";
+  }
 };
 
 export default CustomDialog;

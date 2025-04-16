@@ -9,27 +9,37 @@ const AddressManager = forwardRef(({ selectedLocation, setSelectedLocation,
   
   const confirmAddMarker = async (type) => {
     if (!selectedLocation) return;
-
+  
     try {
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${selectedLocation.lat},${selectedLocation.lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
       );
       const data = await response.json();
       let address = data.results[0]?.formatted_address || "不明な住所";
-
-      console.log("📌 取得した住所:", address);
-
+  
+      console.log("📌 取得した住所（生）:", address);
+  
       if (address === "不明な住所") {
         setIsManualAddressMode(true);
         return;
       }
-
-      await saveMarkerToFirestore(type, address);
+  
+      // 🔧 整形処理ここから
+      const cleaned = address
+        .replace(/^日本、?/, "")
+        .replace(/^〒\\d{3}-\\d{4}\\s*/, "")
+        .replace(/^神奈川県伊勢原市/, "伊勢原市")
+        .trim();
+  
+      console.log("📌 整形後の住所:", cleaned);
+  
+      await saveMarkerToFirestore(type, cleaned); // 👈 修正ここだけ
     } catch (error) {
       console.error("🚨 住所取得エラー:", error);
       setIsManualAddressMode(true);
     }
   };
+  
 
   const saveMarkerToFirestore = async (type, address) => {
     try {
