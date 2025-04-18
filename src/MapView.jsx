@@ -133,7 +133,16 @@ useEffect(() => {
             url: iconUrl,
             scaledSize: new window.google.maps.Size(40, 40),
           },
+          draggable: mode === "移動", // 🔥 ここが超重要！
         });
+        
+        if (mode === "移動") {
+          marker.addListener("dragend", (e) => {
+            const newLat = e.latLng.lat();
+            const newLng = e.latLng.lng();
+            handleMarkerDragEnd(hydrant.firestoreId, newLat, newLng);
+          });
+        }
 
         marker.addListener("click", () => {
           if (mode !== "点検") {
@@ -146,9 +155,10 @@ useEffect(() => {
             ) {
               alert(`📌 異常内容: ${hydrant.issue}`);
             }
-            return;
+            return; // 🔥 ここで return して点検以外は抜ける
           }
-
+        
+          // ✅ 点検モードだけここが実行される！
           setDialogSelectOptions([
             "未点検に戻す",
             "異常なし",
