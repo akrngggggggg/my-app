@@ -20,43 +20,40 @@ const mapContainerStyle = {
   width: "100vw",
   height: "100vh",
   position: "fixed",
-  top: "0px", // ← ヘッダーの高さに合わせる
+  top: "0px",
   left: 0,
   zIndex: 0,
 };
 
 const MapView = ({ division, section }) => {
-
-  const { isLoaded, loadError } = useJsApiLoader({
+  const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
-    // 🔥 参照 & ステート管理
-    const mapRef = useRef(null); // マップの参照
-    const [mapBounds, setMapBounds] = useState(null); // 地図の表示範囲
-  
-    // 🔥 ユーザー情報関連
-    const [userLocation, setUserLocation] = useState(null);
-    const [zoom, setZoom] = useState(18);
-  
-    // 🔥 データ管理
-    const [hydrants, setHydrants] = useState([]); // 消火栓リスト
-    const [visibleHydrants, setVisibleHydrants] = useState([]); // 画面内の消火栓
-    const [checkedList, setCheckedList] = useState([]); // チェックリスト
-  
-    // 🔥 UI関連
-    const [mode, setMode] = useState("点検"); // ✅ モード管理
-    const [isDialogOpen, setIsDialogOpen] = useState(false); // ダイアログの開閉
-    const [dialogMessage, setDialogMessage] = useState(""); // 表示するメッセージ
-    const [dialogAction, setDialogAction] = useState(null); // 確定時の処理
-    const [isListOpen, setIsListOpen] = useState(false); // リストの開閉状態
-    const [selectedLocation, setSelectedLocation] = useState(null); // クリック位置を一時保存
-    const [showSelection, setShowSelection] = useState(false); // 選択UIの表示フラグ
-    const [mapCenter, setMapCenter] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const addressManagerRef = useRef(null);
-    const [isManualAddressMode, setIsManualAddressMode] = useState(false);
-    const [dialogSelectOptions, setDialogSelectOptions] = useState([]);
-    const [dialogSelectValue, setDialogSelectValue] = useState("異常なし");
+
+  const mapRef = useRef(null);
+  const clustererRef = useRef(null);
+  const modeRef = useRef("点検");
+
+  const [userLocation, setUserLocation] = useState(null);
+  const [zoom, setZoom] = useState(18);
+  const [hydrants, setHydrants] = useState([]);
+  const [visibleHydrants, setVisibleHydrants] = useState([]);
+  const [checkedList, setCheckedList] = useState([]);
+  const [mode, setMode] = useState("点検");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState("");
+  const [dialogAction, setDialogAction] = useState(null);
+  const [isListOpen, setIsListOpen] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [showSelection, setShowSelection] = useState(false);
+  const [mapCenter, setMapCenter] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const addressManagerRef = useRef(null);
+  const [isManualAddressMode, setIsManualAddressMode] = useState(false);
+  const [dialogSelectOptions, setDialogSelectOptions] = useState([]);
+  const [dialogSelectValue, setDialogSelectValue] = useState("異常なし");
+  const [draggedMarkerData, setDraggedMarkerData] = useState(null);
+  const [mapBounds, setMapBounds] = useState(null);
 
         const getRadiusByZoom = (zoom) => {
       if (zoom >= 19) return 300;
@@ -80,7 +77,17 @@ const MapView = ({ division, section }) => {
         mapRef.current.setZoom(18);
       }
     };
-
+    const debouncedUpdateVisibleHydrants = useMemo(
+      () =>
+        debounce((center, hydrantsList, radius) => {
+          const nearby = hydrantsList.filter((h) => {
+            const distance = haversine(center, { lat: h.lat, lng: h.lon });
+            return distance <= radius;
+          });
+          setVisibleHydrants((prev) => (isEqual(prev, nearby) ? prev : nearby));
+        }, 300),
+      []
+    );
     
     const onMapLoad = (map) => {
       mapRef.current = map;
@@ -88,201 +95,152 @@ const MapView = ({ division, section }) => {
       setMapCenter({ lat: center.lat(), lng: center.lng() });
       setZoom(map.getZoom());
     
-      const radius = getRadiusByZoom(map.getZoom());
+    const radius = getRadiusByZoom(map.getZoom());
       updateVisibleHydrants(center.toJSON(), hydrants, radius);
     };
+
+    useEffect(() => {
+      modeRef.current = mode;
+    }, [mode]);
+
+    useEffect(() => {
+      if (!mapRef.current || !visibleHydrants.length) return;
+      const map = mapRef.current;
     
-    const clustererRef = useRef(null); // ← グローバルに宣言（MapView コンポーネント内で）
-
-useEffect(() => {
-  if (!mapRef.current || !visibleHydrants.length) return;
-
-  const map = mapRef.current;
-
-  // 🔥 前の clusterer を破棄（残骸を消す）
-  if (clustererRef.current) {
-    clustererRef.current.clearMarkers(); // ← 🔥🔥🔥 これが最重要！！！
-  }
-
-  const markers = visibleHydrants
-    .filter(
-      (hydrant) =>
-        typeof hydrant.lat === "number" &&
-        typeof hydrant.lon === "number" &&
-        !isNaN(hydrant.lat) &&
-        !isNaN(hydrant.lon)
-    )
-    .map((hydrant) => {
-      try {
-        let iconUrl = "";
-        if (hydrant.checked && !hydrant.issue) {
-          iconUrl = "http://maps.google.com/mapfiles/ms/icons/green-dot.png";
-        } else if (hydrant.checked && hydrant.issue) {
-          iconUrl = "/A_2D_vector_graphic_of_a_yellow_triangular_warning.png";
-        } else {
-          if (hydrant.type.includes("消火栓")) {
-            iconUrl = "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
-          } else if (hydrant.type.includes("防火水槽")) {
-            iconUrl = "http://maps.google.com/mapfiles/ms/icons/blue-dot.png";
-          }
-        }
-
+      if (clustererRef.current) clustererRef.current.clearMarkers();
+      if (window.currentHydrantMarkers) window.currentHydrantMarkers.forEach((m) => m.setMap(null));
+    
+      const markers = visibleHydrants.map((hydrant) => {
+        const iconUrl = hydrant.checked
+          ? (hydrant.issue
+            ? "/A_2D_vector_graphic_of_a_yellow_triangular_warning.png"
+            : "http://maps.google.com/mapfiles/ms/icons/green-dot.png")
+          : (hydrant.type.includes("消火栓")
+            ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+            : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png");
+    
         const marker = new window.google.maps.Marker({
           position: { lat: hydrant.lat, lng: hydrant.lon },
-          icon: {
-            url: iconUrl,
-            scaledSize: new window.google.maps.Size(40, 40),
-          },
-          draggable: mode === "移動", // 🔥 ここが超重要！
+          icon: { url: iconUrl, scaledSize: new window.google.maps.Size(40, 40) },
+          draggable: modeRef.current === "移動",
         });
-        
-        if (mode === "移動") {
-          marker.addListener("dragend", (e) => {
-            const newLat = e.latLng.lat();
-            const newLng = e.latLng.lng();
-            handleMarkerDragEnd(hydrant.firestoreId, newLat, newLng);
-          });
-        }
-
+    
+        // 🖱️ クリックイベント
         marker.addListener("click", () => {
-          if (mode !== "点検") {
-            if (mode === "追加削除") {
-              handleMarkerDelete(hydrant.firestoreId, hydrant.type);
-            } else if (
-              hydrant.checked &&
-              hydrant.issue &&
-              hydrant.issue !== "異常なし"
-            ) {
-              alert(`📌 異常内容: ${hydrant.issue}`);
-            }
-            return; // 🔥 ここで return して点検以外は抜ける
-          }
-        
-          // ✅ 点検モードだけここが実行される！
-          setDialogSelectOptions([
-            "未点検に戻す",
-            "異常なし",
-            "水没",
-            "砂利・泥",
-            "その他",
-          ]);
-          setDialogSelectValue(hydrant.issue ?? "異常なし");
-          setDialogMessage("点検結果を選択してください");
-
-          const currentHydrantId = hydrant.firestoreId;
-          const currentHydrant = hydrant;
-
-          setDialogAction(() => async (selectedValue) => {
-            const checklistRef = doc(db, "checklists", `${division}-${section}`);
-
-            if (selectedValue === "未点検に戻す") {
-              await updateDoc(checklistRef, {
-                [currentHydrantId]: deleteField(),
-              });
+          const currentMode = modeRef.current;
+    
+          if (currentMode === "点検") {
+            setDialogSelectOptions(["未点検に戻す", "異常なし", "水没", "砂利・泥", "その他"]);
+            setDialogSelectValue(hydrant.issue ?? "異常なし");
+            setDialogMessage("点検結果を選択してください");
+    
+            const currentHydrantId = hydrant.firestoreId;
+            const currentHydrant = hydrant;
+    
+            setDialogAction(() => async (selectedValue) => {
+              const checklistRef = doc(db, "checklists", `${division}-${section}`);
+    
+              if (selectedValue === "未点検に戻す") {
+                await updateDoc(checklistRef, { [currentHydrantId]: deleteField() });
+                setHydrants((prev) =>
+                  prev.map((h) =>
+                    h.firestoreId === currentHydrantId ? { ...h, checked: false, issue: null } : h
+                  )
+                );
+                setCheckedList((prev) => prev.filter((h) => h.firestoreId !== currentHydrantId));
+                setIsDialogOpen(false);
+                return;
+              }
+    
+              const firestoreValue =
+                selectedValue === "異常なし"
+                  ? true
+                  : { checked: true, issue: selectedValue, lastUpdated: new Date().toISOString() };
+    
+              await setDoc(checklistRef, { [currentHydrantId]: firestoreValue }, { merge: true });
+    
               setHydrants((prev) =>
                 prev.map((h) =>
                   h.firestoreId === currentHydrantId
-                    ? { ...h, checked: false, issue: null }
+                    ? {
+                        ...h,
+                        checked: true,
+                        issue: selectedValue === "異常なし" ? null : selectedValue,
+                        lastUpdated: new Date().toISOString(),
+                      }
                     : h
                 )
               );
-              setCheckedList((prev) =>
-                prev.filter((h) => h.firestoreId !== currentHydrantId)
-              );
+    
+              setCheckedList((prev) => {
+                const exists = prev.some((h) => h.firestoreId === currentHydrantId);
+                const newItem = {
+                  ...currentHydrant,
+                  checked: true,
+                  issue: selectedValue === "異常なし" ? null : selectedValue,
+                };
+                return exists
+                  ? prev.map((h) => (h.firestoreId === currentHydrantId ? newItem : h))
+                  : [...prev, newItem];
+              });
+    
               setIsDialogOpen(false);
-              return;
-            }
-
-            const firestoreValue =
-              selectedValue === "異常なし"
-                ? true
-                : {
-                    checked: true,
-                    issue: selectedValue,
-                    lastUpdated: new Date().toISOString(),
-                  };
-
-            await setDoc(
-              checklistRef,
-              { [currentHydrantId]: firestoreValue },
-              { merge: true }
-            );
-
-            setHydrants((prev) =>
-              prev.map((h) =>
-                h.firestoreId === currentHydrantId
-                  ? {
-                      ...h,
-                      checked: true,
-                      issue:
-                        selectedValue === "異常なし" ? null : selectedValue,
-                      lastUpdated: new Date().toISOString(),
-                    }
-                  : h
-              )
-            );
-
-            setCheckedList((prev) => {
-              const exists = prev.some(
-                (h) => h.firestoreId === currentHydrantId
-              );
-              const newItem = {
-                ...currentHydrant,
-                checked: true,
-                issue: selectedValue === "異常なし" ? null : selectedValue,
-              };
-              return exists
-                ? prev.map((h) =>
-                    h.firestoreId === currentHydrantId ? newItem : h
-                  )
-                : [...prev, newItem];
             });
-
-            setIsDialogOpen(false);
-          });
-
-          setIsDialogOpen(true);
+    
+            setIsDialogOpen(true);
+          } else if (currentMode === "追加削除") {
+            handleMarkerDelete(hydrant.firestoreId, hydrant.type);
+          } else if (currentMode === "移動") {
+            alert("💡 マーカーをドラッグで移動できます。");
+          }
         });
-
+    
+        // 🌀 ドラッグ終了時（位置移動確認ダイアログ）
+        marker.addListener("dragend", (event) => {
+          if (modeRef.current === "移動") {
+            const newLat = event.latLng.lat();
+            const newLng = event.latLng.lng();
+            handleMarkerDragEnd(hydrant.firestoreId, newLat, newLng); // ← ここで呼ぶ！！
+          }
+        });
+    
         return marker;
-      } catch (e) {
-        console.error("❌ マーカー作成失敗:", hydrant, e);
-        return undefined;
-      }
-    })
-    .filter((m) => m instanceof window.google.maps.Marker);
-
-  // 🔥 Clusterer を更新して保持
-  clustererRef.current = new MarkerClusterer({
-    map,
-    markers,
-  });
-}, [visibleHydrants, mode]);
-
-useEffect(() => {
-    if (!mapRef.current) return;
-  
-    const map = mapRef.current;
-  
-    map.addListener("zoom_changed", () => {
-      const currentCenter = map.getCenter();
-      setMapCenter({ lat: currentCenter.lat(), lng: currentCenter.lng() });
-  
-      const currentZoom = map.getZoom();
-      setZoom(currentZoom);
-      const radius = getRadiusByZoom(currentZoom); // ← 修正
-      updateVisibleHydrants(currentCenter.toJSON(), hydrants, radius);
-    });
-  
-    map.addListener("dragend", () => {
-      const currentCenter = map.getCenter();
-      setMapCenter({ lat: currentCenter.lat(), lng: currentCenter.lng() });
-  
-      const currentZoom = map.getZoom();
-      const radius = getRadiusByZoom(currentZoom);
-      updateVisibleHydrants(currentCenter.toJSON(), hydrants, radius);
-    });
-  }, [hydrants]);
+      });
+    
+      window.currentHydrantMarkers = markers;
+      clustererRef.current = new MarkerClusterer({ map, markers });
+    }, [visibleHydrants, hydrants, mode]);
+    
+    
+    useEffect(() => {
+      if (!mapRef.current) return;
+      const map = mapRef.current;
+    
+      // 🔁 最新のモードを同期
+      modeRef.current = mode;
+    
+      const handleUpdate = () => {
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+    
+        setMapCenter({ lat: center.lat(), lng: center.lng() });
+        setZoom(zoom);
+    
+        const radius = getRadiusByZoom(zoom);
+        debouncedUpdateVisibleHydrants(center.toJSON(), hydrants, radius);
+      };
+    
+      map.addListener("zoom_changed", handleUpdate);
+      map.addListener("dragend", handleUpdate);
+    
+      handleUpdate(); // 初期実行
+    
+      return () => {
+        window.google.maps.event.clearListeners(map, "zoom_changed");
+        window.google.maps.event.clearListeners(map, "dragend");
+      };
+    }, [hydrants, mode]);
+    
 
     // 🔥 `MarkerManager` を使う
     const { handleMarkerDragEnd, handleMarkerDelete } = MarkerManager({
@@ -291,7 +249,8 @@ useEffect(() => {
     setHydrants,
     setIsDialogOpen,
     setDialogMessage,
-    setDialogAction
+    setDialogAction,
+    mapRef,
     });
 
     // 🔥 `CheckListManager` から関数を取得
@@ -408,10 +367,6 @@ const handleSafeReset = () => {
   }
 }, [division, section]);
 
-useEffect(() => {
-  const radius = getRadiusByZoom(zoom); // ← 現在のズームに応じた距離を取得
-  updateVisibleHydrants(mapCenter, hydrants, radius);
-}, [mapCenter, hydrants, zoom]);
 
 const handleMapClick = (event) => {
   if (mode !== "追加削除") return;
@@ -580,7 +535,14 @@ if (loading || !isLoaded) { // 🔥 読み込み中の表示条件
   isOpen={isDialogOpen} 
   message={dialogMessage} 
   onConfirm={dialogAction} 
-  onCancel={() => setIsDialogOpen(false)} 
+  onCancel={() => {
+    if (window.cancelMarkerMove) {
+      window.cancelMarkerMove();
+      delete window.cancelMarkerMove;
+    }
+    setIsDialogOpen(false);
+    setDialogSelectOptions([]); 
+  }}
   dialogSelectOptions={dialogSelectOptions} 
   dialogSelectValue={dialogSelectValue} 
   setDialogSelectValue={setDialogSelectValue}

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import Signup from "./components/Signup";
 import Login from "./components/Login";
 import Home from "./components/Home";
+import MyPage from "./MyPage";
 import { auth, db } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -45,6 +46,7 @@ function App() {
        <Route path="/signup" element={user ? <Navigate to="/home" /> : <Signup setUser={setUser} />} />
        <Route path="/login" element={user ? <Navigate to="/home" /> : <Login setUser={setUser} />} />
        <Route path="/home" element={user ? <Home user={user} /> : <Navigate to="/login" />} />
+       <Route path="/mypage" element={user ? <MyPage user={user} /> : <Navigate to="/login" />} />
       </Routes>
     </Router>
   );

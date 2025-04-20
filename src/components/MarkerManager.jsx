@@ -2,12 +2,47 @@ import React from "react";
 import { doc, updateDoc, addDoc, deleteDoc, getDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
 
-const MarkerManager = ({ hydrants, setHydrants, setCheckedList, setIsDialogOpen, setDialogMessage, setDialogAction }) => {
-  
+const MarkerManager = ({
+  hydrants,
+  setHydrants,
+  setCheckedList,
+  setIsDialogOpen,
+  setDialogMessage,
+  setDialogAction,
+  mapRef,
+}) => {
   // 🔥 マーカーを移動
   const handleMarkerDragEnd = (firestoreId, newLat, newLng) => {
+    // 元の位置を保存
+    const original = hydrants.find(h => h.firestoreId === firestoreId);
+    const originalLat = original?.lat;
+    const originalLng = original?.lon;
+  
     setDialogMessage("ここに移動しますか？");
+  
     setDialogAction(() => () => confirmMoveMarker(firestoreId, newLat, newLng));
+  
+    // キャンセル時にマーカーの位置を戻す
+    const marker = window.currentHydrantMarkers?.find(m => {
+      const pos = m.getPosition();
+      return pos.lat() === newLat && pos.lng() === newLng;
+    });
+    const map = window?.google?.maps?.Map ? mapRef?.current : null;
+  
+    // ✨ キャンセルロジックを window に記録しておく（MapView で使う）
+    window.cancelMarkerMove = () => {
+      if (marker && originalLat != null && originalLng != null) {
+        marker.setPosition({ lat: originalLat, lng: originalLng });
+        if (map) {
+          const center = map.getCenter();
+          map.panTo({
+            lat: center.lat() + 0.000001,
+            lng: center.lng(), // 強制リフレッシュ
+          });
+        }
+      }
+    };
+  
     setIsDialogOpen(true);
   };
 

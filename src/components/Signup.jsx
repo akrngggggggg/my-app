@@ -137,6 +137,7 @@ const Signup = ({ setUser }) => {
                 <option value="3部">3部</option>
                 <option value="4部">4部</option>
                 <option value="5部">5部</option>
+                <option value="6部">6部</option>
               </select>
             </div>
 
@@ -201,6 +202,7 @@ const Signup = ({ setUser }) => {
                   <option value="3部">3部</option>
                   <option value="4部">4部</option>
                   <option value="5部">5部</option>
+                  <option value="6部">6部</option>
                 </select>
               </div>
 
