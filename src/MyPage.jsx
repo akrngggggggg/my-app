@@ -19,6 +19,7 @@ const MyPage = ({ user }) => {
   const [section, setSection] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -104,6 +105,16 @@ const MyPage = ({ user }) => {
     setLoading(false);
   };
 
+  const handleLineShare = async () => {
+    if (sharing) return;
+    setSharing(true);
+    await exportCheckedListCSV({ division, section });
+    setTimeout(() => {
+      window.location.href = `https://line.me/R/msg/text/?【${division}${section}】点検リストCSVを共有します。ファイルを添付して送信してください。`;
+      setSharing(false);
+    }, 500);
+  };
+
   return (
     <div className="min-h-screen max-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-gray-100 via-white to-gray-200 px-4 py-12">
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
@@ -149,18 +160,11 @@ const MyPage = ({ user }) => {
             {loading ? "📄 保存中..." : "📄 CSVで保存"}
           </button>
           <button
-            onClick={async () => {
-              await exportCheckedListCSV({ division, section });
-              setTimeout(() => {
-                window.open(
-                  `https://line.me/R/msg/text/?【${division}${section}】点検リストCSVを共有します。ファイルを添付して送信してください。`,
-                  "_blank"
-                );
-              }, 500);
-            }}
-            className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl font-bold shadow"
+            onClick={handleLineShare}
+            disabled={sharing}
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl font-bold shadow disabled:opacity-50"
           >
-            📤 LINEで共有
+            {sharing ? "📤 共有中..." : "📤 LINEで共有"}
           </button>
         </div>
 
