@@ -56,7 +56,12 @@ const CustomDialog = ({
             <select
               id="issue-select"
               value={dialogSelectValue}
-              onChange={(e) => setDialogSelectValue(e.target.value)}
+              onChange={(e) => {
+                setDialogSelectValue(e.target.value);
+                if (window.selectedValueRef) {
+                  window.selectedValueRef.current = e.target.value;
+                }
+              }}
               style={{ padding: "8px", fontSize: "16px", borderRadius: "4px" }}
             >
               {dialogSelectOptions.map((option, idx) => (

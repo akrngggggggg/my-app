@@ -112,12 +112,13 @@ const MapView = ({ division, section }) => {
     
       const markers = visibleHydrants.map((hydrant) => {
         const iconUrl = hydrant.checked
-          ? (hydrant.issue
-            ? "/A_2D_vector_graphic_of_a_yellow_triangular_warning.png"
-            : "http://maps.google.com/mapfiles/ms/icons/green-dot.png")
-          : (hydrant.type.includes("消火栓")
-            ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
-            : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png");
+  ? (!hydrant.issue || hydrant.issue === "異常なし"
+    ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+    : "/A_2D_vector_graphic_of_a_yellow_triangular_warning.png")
+  : (hydrant.type.includes("消火栓")
+    ? "http://maps.google.com/mapfiles/ms/icons/red-dot.png"
+    : "http://maps.google.com/mapfiles/ms/icons/blue-dot.png");
+
     
         const marker = new window.google.maps.Marker({
           position: { lat: hydrant.lat, lng: hydrant.lon },

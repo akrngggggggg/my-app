@@ -1,7 +1,8 @@
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { doc, setDoc, getDoc, getDocs, collection } from "firebase/firestore";
 import { db } from "../firebase";
+
 
 const CheckListManager = ({ 
   checkedList, 
@@ -25,6 +26,12 @@ const CheckListManager = ({
   const [dialogProcessing, setDialogProcessing] = useState(false);
   const [filterKeyword, setFilterKeyword] = useState("");
   const [totalEverChecked, setTotalEverChecked] = useState(0);
+
+  const selectedValueRef = useRef("");
+
+  useEffect(() => {
+    window.selectedValueRef = selectedValueRef;
+  }, []);
 
   useEffect(() => {
     if (!division || !section) return;
@@ -119,55 +126,81 @@ const CheckListManager = ({
       console.error(`🚨 消火栓が見つかりません ID=${firestoreId}`);
       return;
     }
-
+  
     const isChecked = hydrant.checked === true;
-    const confirmationMessage = isChecked ? "未点検に戻しますか？" : "点検結果を選択してください";
-    
-    console.log("🔥 不具合選択肢をセットします");
-    setDialogSelectOptions(["未点検に戻す", "異常なし", "水没", "砂利・泥", "その他"]);
-    setDialogSelectValue(isChecked ? "未点検に戻す" : "異常なし");
-    
-
+  
+    setDialogSelectOptions(["--- 選択してください ---", "異常なし", "水没", "砂利・泥", "その他", "未点検に戻す"]);
+    setDialogSelectValue("");
+    selectedValueRef.current = ""; 
+  
+    const confirmationMessage = isChecked
+      ? "未点検に戻しますか？"
+      : "点検結果を選択してください";
+  
     setDialogMessage(confirmationMessage);
-    setDialogAction(() => () => confirmCheckHydrant(firestoreId, isChecked));
+    setDialogAction(() => () => {
+      const value = selectedValueRef.current;
+      if (!value || value === "--- 選択してください ---") {
+        alert("点検結果を選択してください");
+        return;
+      }
+      confirmCheckHydrant(firestoreId, isChecked, value);
+    });
     setIsDialogOpen(true);
   };
-
-  const confirmCheckHydrant = async (firestoreId, isChecked) => {
+  
+  
+  const confirmCheckHydrant = async (firestoreId, isChecked, selectedValue) => {
     try {
       const checklistRef = doc(db, "checklists", checklistId);
-
+      const today = new Date().toISOString().slice(0, 10);
+  
       let firestoreValue;
-if (dialogSelectValue === "未点検に戻す") {
-  firestoreValue = false;
-} else if (dialogSelectValue === "異常なし") {
-  firestoreValue = true;
-} else {
-  firestoreValue = { checked: true, issue: dialogSelectValue };
-}
-
+      if (selectedValue === "未点検に戻す") {
+        firestoreValue = false;
+      } else if (selectedValue === "異常なし") {
+        firestoreValue = {
+          checked: true,
+          issue: "異常なし",
+          lastUpdated: today,
+        };
+      } else {
+        firestoreValue = {
+          checked: true,
+          issue: selectedValue,
+          lastUpdated: today,
+        };
+      }
+  
       const updatedHydrants = hydrants.map(h =>
         h.firestoreId === firestoreId
-          ? { ...h, checked: !isChecked, issue: isChecked ? null : (dialogSelectValue === "異常なし" ? null : dialogSelectValue) }
+          ? {
+              ...h,
+              checked: !isChecked,
+              issue:
+                isChecked || selectedValue === "異常なし"
+                  ? null
+                  : selectedValue,
+            }
           : h
       );
-
+  
       setHydrants(updatedHydrants);
-
+  
       const updatedHydrant = updatedHydrants.find(h => h.firestoreId === firestoreId);
       setCheckedList(prev =>
         updatedHydrant.checked
           ? [...prev, updatedHydrant]
           : prev.filter(h => h.firestoreId !== firestoreId)
       );
-
+  
       await setDoc(checklistRef, { [firestoreId]: firestoreValue }, { merge: true });
-
+  
       console.log(`✅ 点検状態変更: ${updatedHydrant.checked ? "点検済み" : "未点検"}`);
     } catch (error) {
       console.error("🚨 Firestore 更新エラー:", error);
     }
-
+  
     setIsDialogOpen(false);
   };
 

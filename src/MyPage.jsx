@@ -20,6 +20,7 @@ const MyPage = ({ user }) => {
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [providerId, setProviderId] = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -33,6 +34,9 @@ const MyPage = ({ user }) => {
         setSection(data.section || "");
       }
     };
+    if (user.providerData && user.providerData[0]) {
+      setProviderId(user.providerData[0].providerId);
+    }
     fetchUserInfo();
   }, [user]);
 
@@ -83,19 +87,57 @@ const MyPage = ({ user }) => {
     }
   };
 
+  const formatAddress = (address, issue = null) => {
+    if (!address) return "";
+    address = address.replace(/[Ａ-Ｚａ-ｚ０-９！-～]/g, s =>
+      String.fromCharCode(s.charCodeAt(0) - 0xFEE0)
+    );
+    address = address.replace(/[ー－―—〜−]/g, "-");
+    address = address.replace(/^日本、?/, "");
+    address = address.replace(/^〒?\d{3}-\d{4}\s*/, "");
+    address = address.replace(/^神奈川県伊勢原市|^神奈川県|^伊勢原市/, "");
+    address = address.replace(/番地|番|丁目/g, "-");
+    address = address.replace(/号/g, "");
+    address = address.replace(/-+$/g, "");
+    address = address.replace(/^-,*/, "");
+    const cleanAddress = address.trim();
+  
+    if (issue && issue !== "異常なし") {
+      return `⚠️ ${cleanAddress}`;
+    }
+    return cleanAddress;
+  };
+  
   const exportCheckedListCSV = async ({ division, section }) => {
     setLoading(true);
     try {
-      const collectionRef = collection(db, "checklists", `${division}-${section}`, "items");
-      const snapshot = await getDocs(collectionRef);
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const checklistRef = doc(db, "checklists", `${division}-${section}`);
+      const snapshot = await getDoc(checklistRef);
+      const data = snapshot.exists() ? snapshot.data() : {};
+  
+      const hydrantsSnap = await getDocs(collection(db, "fire_hydrants"));
+      const addressMap = {};
+      hydrantsSnap.forEach((doc) => {
+        addressMap[doc.id] = doc.data().address || "住所不明";
+      });
+  
       const csv = ["住所,点検日,異常"].concat(
-        data
-          .filter((item) => item.checked)
-          .map((item) => `${item.id},${item.lastUpdated || ""},${item.issue || ""}`)
+        Object.entries(data)
+          .filter(([_, value]) => value && (value.checked || value === true))
+          .map(([id, value]) => {
+            const issue = typeof value === "object"
+              ? value.issue || "異常なし"
+              : "異常なし";
+            const lastUpdated = typeof value === "object"
+              ? value.lastUpdated || ""
+              : "";
+            const cleanedAddress = formatAddress(addressMap[id], issue);
+            return `${cleanedAddress},${lastUpdated},${issue}`;
+          })
       ).join("\n");
-
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  
+      const BOM = "\uFEFF"; // Excelで文字化けしないように
+      const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
       saveAs(blob, `${division}_${section}_点検リスト.csv`);
       alert("CSVファイルを保存しました！");
     } catch (e) {
@@ -104,6 +146,9 @@ const MyPage = ({ user }) => {
     }
     setLoading(false);
   };
+  
+  
+  
 
   const handleLineShare = async () => {
     if (sharing) return;
@@ -116,7 +161,7 @@ const MyPage = ({ user }) => {
   };
 
   return (
-    <div className="min-h-screen max-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-gray-100 via-white to-gray-200 px-4 py-12">
+    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-gray-100 via-white to-gray-200 px-4 py-12">
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">👤 マイページ</h2>
 
@@ -176,10 +221,12 @@ const MyPage = ({ user }) => {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             className="w-full border px-4 py-2 rounded-xl mb-2"
+            disabled={providerId === "google.com"}
           />
           <button
             onClick={handlePasswordUpdate}
             className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-xl font-bold shadow"
+            disabled={providerId === "google.com"}
           >
             パスワードを変更する
           </button>
