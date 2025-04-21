@@ -49,6 +49,8 @@ const CheckListManager = ({
           return {
             ...doc.data(),
             firestoreId,
+            division,
+            section,
             checked: entry === true ? true : !!entry?.checked,
             issue: typeof entry === "object" ? entry?.issue : null
           };

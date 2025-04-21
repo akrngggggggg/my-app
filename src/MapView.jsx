@@ -128,72 +128,16 @@ const MapView = ({ division, section }) => {
         // 🖱️ クリックイベント
         marker.addListener("click", () => {
           const currentMode = modeRef.current;
-    
+        
           if (currentMode === "点検") {
-            setDialogSelectOptions(["未点検に戻す", "異常なし", "水没", "砂利・泥", "その他"]);
-            setDialogSelectValue(hydrant.issue ?? "異常なし");
-            setDialogMessage("点検結果を選択してください");
-    
-            const currentHydrantId = hydrant.firestoreId;
-            const currentHydrant = hydrant;
-    
-            setDialogAction(() => async (selectedValue) => {
-              const checklistRef = doc(db, "checklists", `${division}-${section}`);
-    
-              if (selectedValue === "未点検に戻す") {
-                await updateDoc(checklistRef, { [currentHydrantId]: deleteField() });
-                setHydrants((prev) =>
-                  prev.map((h) =>
-                    h.firestoreId === currentHydrantId ? { ...h, checked: false, issue: null } : h
-                  )
-                );
-                setCheckedList((prev) => prev.filter((h) => h.firestoreId !== currentHydrantId));
-                setIsDialogOpen(false);
-                return;
-              }
-    
-              const firestoreValue =
-                selectedValue === "異常なし"
-                  ? true
-                  : { checked: true, issue: selectedValue, lastUpdated: new Date().toISOString() };
-    
-              await setDoc(checklistRef, { [currentHydrantId]: firestoreValue }, { merge: true });
-    
-              setHydrants((prev) =>
-                prev.map((h) =>
-                  h.firestoreId === currentHydrantId
-                    ? {
-                        ...h,
-                        checked: true,
-                        issue: selectedValue === "異常なし" ? null : selectedValue,
-                        lastUpdated: new Date().toISOString(),
-                      }
-                    : h
-                )
-              );
-    
-              setCheckedList((prev) => {
-                const exists = prev.some((h) => h.firestoreId === currentHydrantId);
-                const newItem = {
-                  ...currentHydrant,
-                  checked: true,
-                  issue: selectedValue === "異常なし" ? null : selectedValue,
-                };
-                return exists
-                  ? prev.map((h) => (h.firestoreId === currentHydrantId ? newItem : h))
-                  : [...prev, newItem];
-              });
-    
-              setIsDialogOpen(false);
-            });
-    
-            setIsDialogOpen(true);
+            handleCheckHydrant(hydrant.firestoreId); // ✅ CheckListManager 側に任せる！
           } else if (currentMode === "追加削除") {
             handleMarkerDelete(hydrant.firestoreId, hydrant.type);
           } else if (currentMode === "移動") {
             alert("💡 マーカーをドラッグで移動できます。");
           }
         });
+        
     
         // 🌀 ドラッグ終了時（位置移動確認ダイアログ）
         marker.addListener("dragend", (event) => {
@@ -621,22 +565,7 @@ if (loading || !isLoaded) { // 🔥 読み込み中の表示条件
     ✔ 点検済みリスト {filteredCheckedList.length}/{totalEverChecked}
   </h3>
 
-  {/* 🔍 フィルター入力欄 */}
-  <input
-    type="text"
-    placeholder="住所で絞り込み"
-    value={filterKeyword}
-    onChange={(e) => setFilterKeyword(e.target.value)}
-    style={{
-      width: "100%",
-      padding: "6px",
-      marginBottom: "8px",
-      border: "1px solid #ccc",
-      borderRadius: "5px"
-    }}
-  />
-
-  {/* ⚠️ 異常ありリスト */}
+ {/* ⚠️ 異常ありリスト */}
   {abnormalList.length > 0 && (
     <div style={{ marginBottom: "8px", padding: "5px", backgroundColor: "#ffeaea", borderRadius: "5px" }}>
       <h4 style={{ color: "red", margin: "4px 0" }}>⚠️ 異常あり（{abnormalList.length}件）</h4>

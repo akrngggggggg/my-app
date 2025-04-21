@@ -18,6 +18,7 @@ const MyPage = ({ user }) => {
   const [division, setDivision] = useState("");
   const [section, setSection] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -81,8 +82,30 @@ const MyPage = ({ user }) => {
     }
   };
 
+  const exportCheckedListCSV = async ({ division, section }) => {
+    setLoading(true);
+    try {
+      const collectionRef = collection(db, "checklists", `${division}-${section}`, "items");
+      const snapshot = await getDocs(collectionRef);
+      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const csv = ["住所,点検日,異常"].concat(
+        data
+          .filter((item) => item.checked)
+          .map((item) => `${item.id},${item.lastUpdated || ""},${item.issue || ""}`)
+      ).join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      saveAs(blob, `${division}_${section}_点検リスト.csv`);
+      alert("CSVファイルを保存しました！");
+    } catch (e) {
+      console.error("CSVエクスポート失敗:", e);
+      alert("CSVの保存に失敗しました。");
+    }
+    setLoading(false);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 via-white to-gray-200 px-4">
+    <div className="min-h-screen max-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-gray-100 via-white to-gray-200 px-4 py-12">
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">👤 マイページ</h2>
 
@@ -118,15 +141,25 @@ const MyPage = ({ user }) => {
         </div>
 
         <div className="space-y-3 mb-6">
-          <button onClick={() => exportCheckedListCSV({ division, section })} className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-xl font-bold shadow">
-            📄 CSVで保存
+          <button
+            onClick={() => exportCheckedListCSV({ division, section })}
+            disabled={loading}
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-xl font-bold shadow disabled:opacity-50"
+          >
+            {loading ? "📄 保存中..." : "📄 CSVで保存"}
           </button>
-          <button onClick={async () => {
-            await exportCheckedListCSV({ division, section });
-            setTimeout(() => {
-              window.open(`https://line.me/R/msg/text/?【${division}${section}】点検リストCSVを共有します。ファイルを添付して送信してください。`, "_blank");
-            }, 500);
-          }} className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl font-bold shadow">
+          <button
+            onClick={async () => {
+              await exportCheckedListCSV({ division, section });
+              setTimeout(() => {
+                window.open(
+                  `https://line.me/R/msg/text/?【${division}${section}】点検リストCSVを共有します。ファイルを添付して送信してください。`,
+                  "_blank"
+                );
+              }, 500);
+            }}
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl font-bold shadow"
+          >
             📤 LINEで共有
           </button>
         </div>
@@ -149,15 +182,24 @@ const MyPage = ({ user }) => {
         </div>
 
         <div className="flex justify-between mb-6">
-          <button onClick={handleSave} className="w-[48%] bg-indigo-500 hover:bg-indigo-600 text-white py-2 rounded-xl font-bold shadow">
-            アカウント編集保存
+          <button
+            onClick={handleSave}
+            className="w-[48%] bg-indigo-500 hover:bg-indigo-600 text-white py-2 rounded-xl font-bold shadow"
+          >
+            編集保存
           </button>
-          <button onClick={handleDeleteAccount} className="w-[48%] bg-red-500 hover:bg-red-600 text-white py-2 rounded-xl font-bold shadow">
-            アカウント削除
+          <button
+            onClick={handleDeleteAccount}
+            className="w-[48%] bg-red-500 hover:bg-red-600 text-white py-2 rounded-xl font-bold shadow"
+          >
+            削除
           </button>
         </div>
 
-        <button onClick={() => navigate("/home")} className="w-full text-center text-blue-600 hover:underline">
+        <button
+          onClick={() => navigate("/home")}
+          className="w-full text-center text-blue-600 hover:underline"
+        >
           ← 地図に戻る
         </button>
       </div>
