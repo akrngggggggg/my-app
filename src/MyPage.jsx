@@ -1,14 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { getAuth, deleteUser } from "firebase/auth";
+import { getAuth, deleteUser, updatePassword } from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  getDocs,
+} from "firebase/firestore";
 import { db } from "./firebase";
-import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { saveAs } from "file-saver";
 
 const MyPage = ({ user }) => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [division, setDivision] = useState("");
   const [section, setSection] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -30,20 +39,17 @@ const MyPage = ({ user }) => {
       alert("名前・分団・部をすべて入力してください");
       return;
     }
-
     await updateDoc(doc(db, "users", user.uid), {
       name,
       division,
       section,
     });
-
     alert("プロフィールを更新しました！");
   };
 
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm("本当にアカウントを削除しますか？この操作は元に戻せません。");
     if (!confirmed) return;
-
     try {
       await deleteDoc(doc(db, "users", user.uid));
       await deleteUser(getAuth().currentUser);
@@ -55,31 +61,39 @@ const MyPage = ({ user }) => {
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-      <div className="w-full max-w-md bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-bold mb-6 text-center">マイページ</h2>
+  const handlePasswordUpdate = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      alert("6文字以上の新しいパスワードを入力してください");
+      return;
+    }
+    const currentUser = getAuth().currentUser;
+    if (currentUser.providerData[0]?.providerId === "google.com") {
+      alert("Googleログインのユーザーはパスワードを変更できません");
+      return;
+    }
+    try {
+      await updatePassword(currentUser, newPassword);
+      alert("パスワードを変更しました！");
+      setNewPassword("");
+    } catch (error) {
+      console.error("パスワード変更エラー:", error);
+      alert("パスワード変更に失敗しました。再ログインが必要かもしれません。");
+    }
+  };
 
-        {/* 🔤 名前入力欄 */}
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 via-white to-gray-200 px-4">
+      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">👤 マイページ</h2>
+
         <div className="mb-4">
-          <label className="block text-gray-700 font-semibold mb-1">名前</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full border border-gray-300 px-3 py-2 rounded-lg"
-            placeholder="名前を入力"
-          />
+          <label className="block text-gray-600 font-semibold mb-1">名前</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className="w-full border px-4 py-2 rounded-xl" />
         </div>
 
-        {/* 🏢 分団 */}
         <div className="mb-4">
-          <label className="block text-gray-700 font-semibold mb-1">分団</label>
-          <select
-            value={division}
-            onChange={(e) => setDivision(e.target.value)}
-            className="w-full border border-gray-300 px-3 py-2 rounded-lg"
-          >
+          <label className="block text-gray-600 font-semibold mb-1">分団</label>
+          <select value={division} onChange={(e) => setDivision(e.target.value)} className="w-full border px-4 py-2 rounded-xl">
             <option value="">選択してください</option>
             <option value="1分団">1分団</option>
             <option value="2分団">2分団</option>
@@ -90,14 +104,9 @@ const MyPage = ({ user }) => {
           </select>
         </div>
 
-        {/* 📌 部 */}
         <div className="mb-6">
-          <label className="block text-gray-700 font-semibold mb-1">部</label>
-          <select
-            value={section}
-            onChange={(e) => setSection(e.target.value)}
-            className="w-full border border-gray-300 px-3 py-2 rounded-lg"
-          >
+          <label className="block text-gray-600 font-semibold mb-1">部</label>
+          <select value={section} onChange={(e) => setSection(e.target.value)} className="w-full border px-4 py-2 rounded-xl">
             <option value="">選択してください</option>
             <option value="1部">1部</option>
             <option value="2部">2部</option>
@@ -108,27 +117,47 @@ const MyPage = ({ user }) => {
           </select>
         </div>
 
-        {/* ✅ 更新・削除ボタン */}
-        <div className="flex justify-between mb-6">
-          <button
-            onClick={handleSave}
-            className="w-[48%] bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-semibold shadow"
-          >
-            保存
+        <div className="space-y-3 mb-6">
+          <button onClick={() => exportCheckedListCSV({ division, section })} className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-xl font-bold shadow">
+            📄 CSVで保存
           </button>
+          <button onClick={async () => {
+            await exportCheckedListCSV({ division, section });
+            setTimeout(() => {
+              window.open(`https://line.me/R/msg/text/?【${division}${section}】点検リストCSVを共有します。ファイルを添付して送信してください。`, "_blank");
+            }, 500);
+          }} className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl font-bold shadow">
+            📤 LINEで共有
+          </button>
+        </div>
+
+        <div className="mb-6">
+          <p className="text-sm text-gray-700 mb-1">🔐 パスワード変更（Googleアカウント変更不可）</p>
+          <input
+            type="password"
+            placeholder="新しいパスワード（6文字以上）"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="w-full border px-4 py-2 rounded-xl mb-2"
+          />
           <button
-            onClick={handleDeleteAccount}
-            className="w-[48%] bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-semibold shadow"
+            onClick={handlePasswordUpdate}
+            className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-xl font-bold shadow"
           >
+            パスワードを変更する
+          </button>
+        </div>
+
+        <div className="flex justify-between mb-6">
+          <button onClick={handleSave} className="w-[48%] bg-indigo-500 hover:bg-indigo-600 text-white py-2 rounded-xl font-bold shadow">
+            アカウント編集保存
+          </button>
+          <button onClick={handleDeleteAccount} className="w-[48%] bg-red-500 hover:bg-red-600 text-white py-2 rounded-xl font-bold shadow">
             アカウント削除
           </button>
         </div>
 
-        {/* 戻る */}
-        <button
-          onClick={() => navigate("/home")}
-          className="w-full text-center text-blue-500 underline"
-        >
+        <button onClick={() => navigate("/home")} className="w-full text-center text-blue-600 hover:underline">
           ← 地図に戻る
         </button>
       </div>
