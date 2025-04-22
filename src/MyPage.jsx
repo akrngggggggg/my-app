@@ -146,23 +146,10 @@ const MyPage = ({ user }) => {
     }
     setLoading(false);
   };
-  
-  
-  
-
-  const handleLineShare = async () => {
-    if (sharing) return;
-    setSharing(true);
-    await exportCheckedListCSV({ division, section });
-    setTimeout(() => {
-      window.location.href = `https://line.me/R/msg/text/?【${division}${section}】点検リストCSVを共有します。ファイルを添付して送信してください。`;
-      setSharing(false);
-    }, 500);
-  };
 
   return (
-    <div className="min-h-screen overflow-y-auto flex items-center justify-center bg-gradient-to-br from-gray-100 via-white to-gray-200 px-4 py-12">
-      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-200">
+    <div className="min-h-screen overflow-y-auto bg-gradient-to-br from-gray-100 to-gray-200 px-4 py-6">
+  <div className="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-xl border">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">👤 マイページ</h2>
 
         <div className="mb-4">
@@ -202,16 +189,9 @@ const MyPage = ({ user }) => {
             disabled={loading}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-xl font-bold shadow disabled:opacity-50"
           >
-            {loading ? "📄 保存中..." : "📄 CSVで保存"}
+            {loading ? "📄 保存中..." : "📄 点検リストをCSVで保存"}
           </button>
-          <button
-            onClick={handleLineShare}
-            disabled={sharing}
-            className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl font-bold shadow disabled:opacity-50"
-          >
-            {sharing ? "📤 共有中..." : "📤 LINEで共有"}
-          </button>
-        </div>
+         </div>
 
         <div className="mb-6">
           <p className="text-sm text-gray-700 mb-1">🔐 パスワード変更（Googleアカウント変更不可）</p>
@@ -237,13 +217,13 @@ const MyPage = ({ user }) => {
             onClick={handleSave}
             className="w-[48%] bg-indigo-500 hover:bg-indigo-600 text-white py-2 rounded-xl font-bold shadow"
           >
-            編集保存
+            アカウント編集保存
           </button>
           <button
             onClick={handleDeleteAccount}
             className="w-[48%] bg-red-500 hover:bg-red-600 text-white py-2 rounded-xl font-bold shadow"
           >
-            削除
+            アカウント削除
           </button>
         </div>
 

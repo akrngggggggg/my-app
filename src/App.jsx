@@ -42,13 +42,15 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  if (user === undefined || loading) {
+  if (user === undefined) {
+    // ユーザーの判定中は何も表示しない（またはローディング画面）
     return (
-      <div className="text-center mt-10 text-gray-500 text-lg">
+      <div className="flex justify-center items-center min-h-screen text-gray-500 text-lg">
         🔄 認証確認中...
       </div>
     );
   }
+  
 
   return (
     <Router>
