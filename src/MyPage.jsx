@@ -289,7 +289,7 @@ const MyPage = ({ user, setUser }) => {
 
         <button
           onClick={() => navigate("/home")}
-          className="w-full text-center text-blue-600 hover:underline"
+          className="w-full text-center text-blue-600 hover:underline mt-4 mb-4 sm:mb-12"
         >
           ← 地図に戻る
         </button>
