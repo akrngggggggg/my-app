@@ -25,7 +25,13 @@ const mapContainerStyle = {
   zIndex: 0,
 };
 
-const MapView = ({ division, section }) => {
+const MapView = ({
+  division,
+  section,
+  setDivision,
+  setSection,
+  user
+}) => {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
@@ -207,8 +213,9 @@ const MapView = ({ division, section }) => {
       filteredCheckedList,
       totalEverChecked,
       formatAddress,
-      abnormalList,  // ← 🧩 これが必要
-      normalList
+      abnormalList, 
+      normalList,
+      selectorUI
     } = CheckListManager({
       checkedList,
       setCheckedList,
@@ -220,9 +227,12 @@ const MapView = ({ division, section }) => {
       setDialogAction,
       division,
       section,
+      setDivision,
+      setSection,
       setDialogSelectOptions,
       setDialogSelectValue,
       dialogSelectValue,
+      user
     });
 
     const handleConfirmAddMarker = (type) => {
@@ -565,6 +575,7 @@ if (loading || !isLoaded) { // 🔥 読み込み中の表示条件
   <h3 style={{ fontSize: "16px", textAlign: "center" }}>
     ✔ 点検済みリスト {filteredCheckedList.length}/{totalEverChecked}
   </h3>
+  {selectorUI}
 
  {/* ⚠️ 異常ありリスト */}
   {abnormalList.length > 0 && (

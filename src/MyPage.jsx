@@ -1,3 +1,5 @@
+// 🔥MyPage.jsx（最新版・所属と役職編集可能版）
+
 import React, { useEffect, useState } from "react";
 import { getAuth, deleteUser, updatePassword } from "firebase/auth";
 import {
@@ -12,15 +14,18 @@ import { db } from "./firebase";
 import { useNavigate } from "react-router-dom";
 import { saveAs } from "file-saver";
 
-const MyPage = ({ user }) => {
+const MyPage = ({ user, setUser }) => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [division, setDivision] = useState("");
   const [section, setSection] = useState("");
+  const [role, setRole] = useState("");  
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sharing, setSharing] = useState(false);
   const [providerId, setProviderId] = useState(null);
+
+  const [exportDivision, setExportDivision] = useState("");
+  const [exportSection, setExportSection] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -32,6 +37,9 @@ const MyPage = ({ user }) => {
         setName(data.name || "");
         setDivision(data.division || "");
         setSection(data.section || "");
+        setRole(data.role || "団員");
+        setExportDivision(data.division || "");
+        setExportSection(data.section || "");
       }
     };
     if (user.providerData && user.providerData[0]) {
@@ -41,17 +49,35 @@ const MyPage = ({ user }) => {
   }, [user]);
 
   const handleSave = async () => {
-    if (!name.trim() || !division || !section) {
-      alert("名前・分団・部をすべて入力してください");
+    if (!name.trim() || !division || !section || !role) {
+      alert("名前・分団・部・役職をすべて入力してください");
       return;
     }
+
+    const confirmed = window.confirm(
+      `⚠️ 名前と変更履歴は保存されます。このまま保存してもよろしいですか？`
+    );
+    if (!confirmed) return;
+
     await updateDoc(doc(db, "users", user.uid), {
       name,
       division,
       section,
+      role,
     });
+    // 🔥 App.jsxのuser情報も更新
+    if (setUser) {
+      setUser({
+        uid: user.uid,
+        email: user.email,
+        name,
+        division,
+        section,
+        role
+      });
+    }
     alert("プロフィールを更新しました！");
-  };
+};
 
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm("本当にアカウントを削除しますか？この操作は元に戻せません。");
@@ -87,40 +113,64 @@ const MyPage = ({ user }) => {
     }
   };
 
+  const canAccessAll = ["団長", "副団長"].includes(role);
+  const canAccessDivision = ["分団長", "副分団長"].includes(role);
+
+  const divisionSelector = (
+    <select value={exportDivision} onChange={(e) => setExportDivision(e.target.value)}
+      className="w-full border px-2 py-2 rounded-xl mb-2">
+      {["1分団","2分団","3分団","4分団","5分団","6分団"].map(d => (
+        <option key={d}>{d}</option>
+      ))}
+    </select>
+  );
+
+  const sectionSelector = (
+    <select value={exportSection} onChange={(e) => setExportSection(e.target.value)}
+      className="w-full border px-2 py-2 rounded-xl mb-2">
+      {["1部","2部","3部","4部","5部","6部"].map(s => (
+        <option key={s}>{s}</option>
+      ))}
+    </select>
+  );
+
   const formatAddress = (address, issue = null) => {
     if (!address) return "";
     address = address.replace(/[Ａ-Ｚａ-ｚ０-９！-～]/g, s =>
       String.fromCharCode(s.charCodeAt(0) - 0xFEE0)
     );
     address = address.replace(/[ー－―—〜−]/g, "-");
-    address = address.replace(/^日本、?/, "");
-    address = address.replace(/^〒?\d{3}-\d{4}\s*/, "");
-    address = address.replace(/^神奈川県伊勢原市|^神奈川県|^伊勢原市/, "");
-    address = address.replace(/番地|番|丁目/g, "-");
-    address = address.replace(/号/g, "");
-    address = address.replace(/-+$/g, "");
-    address = address.replace(/^-,*/, "");
-    const cleanAddress = address.trim();
-  
+    address = address.replace(/^日本、?/, "")
+      .replace(/^〒?\d{3}-\d{4}\s*/, "")
+      .replace(/^神奈川県伊勢原市|^神奈川県|^伊勢原市/, "")
+      .replace(/番地|番|丁目/g, "-")
+      .replace(/号/g, "")
+      .replace(/-+$/g, "")
+      .replace(/^-,*/, "")
+      .trim();
     if (issue && issue !== "異常なし") {
-      return `⚠️ ${cleanAddress}`;
+      return `⚠️ ${address}`;
     }
-    return cleanAddress;
+    return address;
   };
-  
+
   const exportCheckedListCSV = async ({ division, section }) => {
+    if (!division || !section) {
+      alert("分団と部を選択してください");
+      return;
+    }
     setLoading(true);
     try {
       const checklistRef = doc(db, "checklists", `${division}-${section}`);
       const snapshot = await getDoc(checklistRef);
       const data = snapshot.exists() ? snapshot.data() : {};
-  
+
       const hydrantsSnap = await getDocs(collection(db, "fire_hydrants"));
       const addressMap = {};
       hydrantsSnap.forEach((doc) => {
         addressMap[doc.id] = doc.data().address || "住所不明";
       });
-  
+
       const csv = ["住所,点検日,異常"].concat(
         Object.entries(data)
           .filter(([_, value]) => value && (value.checked || value === true))
@@ -135,8 +185,8 @@ const MyPage = ({ user }) => {
             return `${cleanedAddress},${lastUpdated},${issue}`;
           })
       ).join("\n");
-  
-      const BOM = "\uFEFF"; // Excelで文字化けしないように
+
+      const BOM = "\uFEFF";
       const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
       saveAs(blob, `${division}_${section}_点検リスト.csv`);
       alert("CSVファイルを保存しました！");
@@ -148,8 +198,8 @@ const MyPage = ({ user }) => {
   };
 
   return (
-    <div className="min-h-screen overflow-y-auto bg-gradient-to-br from-gray-100 to-gray-200 px-4 py-6">
-  <div className="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-xl border">
+    <div style={{ maxHeight: "100vh" }} className="h-screen overflow-y-auto bg-gradient-to-br from-gray-100 to-gray-200 px-4 py-6">
+      <div className="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-xl border">
         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">👤 マイページ</h2>
 
         <div className="mb-4">
@@ -159,39 +209,49 @@ const MyPage = ({ user }) => {
 
         <div className="mb-4">
           <label className="block text-gray-600 font-semibold mb-1">分団</label>
-          <select value={division} onChange={(e) => setDivision(e.target.value)} className="w-full border px-4 py-2 rounded-xl">
-            <option value="">選択してください</option>
-            <option value="1分団">1分団</option>
-            <option value="2分団">2分団</option>
-            <option value="3分団">3分団</option>
-            <option value="4分団">4分団</option>
-            <option value="5分団">5分団</option>
-            <option value="6分団">6分団</option>
+          <select value={division} onChange={(e) => setDivision(e.target.value)}
+            className="w-full border px-4 py-2 rounded-xl mb-2">
+            {["1分団","2分団","3分団","4分団","5分団","6分団"].map(d => (
+              <option key={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-gray-600 font-semibold mb-1">部</label>
+          <select value={section} onChange={(e) => setSection(e.target.value)}
+            className="w-full border px-4 py-2 rounded-xl mb-2">
+            {["1部","2部","3部","4部","5部","6部"].map(s => (
+              <option key={s}>{s}</option>
+            ))}
           </select>
         </div>
 
         <div className="mb-6">
-          <label className="block text-gray-600 font-semibold mb-1">部</label>
-          <select value={section} onChange={(e) => setSection(e.target.value)} className="w-full border px-4 py-2 rounded-xl">
-            <option value="">選択してください</option>
-            <option value="1部">1部</option>
-            <option value="2部">2部</option>
-            <option value="3部">3部</option>
-            <option value="4部">4部</option>
-            <option value="5部">5部</option>
-            <option value="6部">6部</option>
+          <label className="block text-gray-600 font-semibold mb-1">役職</label>
+          <select value={role} onChange={(e) => setRole(e.target.value)}
+            className="w-full border px-4 py-2 rounded-xl mb-4">
+            {["団員", "班長", "部長", "副分団長", "分団長", "副団長", "団長"].map(r => (
+              <option key={r}>{r}</option>
+            ))}
           </select>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-gray-600 font-semibold mb-1">CSV出力用の所属</label>
+          {divisionSelector}
+          {sectionSelector}
         </div>
 
         <div className="space-y-3 mb-6">
           <button
-            onClick={() => exportCheckedListCSV({ division, section })}
+            onClick={() => exportCheckedListCSV({ division: exportDivision, section: exportSection })}
             disabled={loading}
             className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-xl font-bold shadow disabled:opacity-50"
           >
             {loading ? "📄 保存中..." : "📄 点検リストをCSVで保存"}
           </button>
-         </div>
+        </div>
 
         <div className="mb-6">
           <p className="text-sm text-gray-700 mb-1">🔐 パスワード変更（Googleアカウント変更不可）</p>

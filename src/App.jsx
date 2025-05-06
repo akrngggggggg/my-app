@@ -9,8 +9,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
 function App() {
-  const [user, setUser] = useState(undefined); // ← undefined に変更！
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(undefined); // undefinedスタート（あなたの元コード準拠）
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -26,6 +25,7 @@ function App() {
               name: data.name,
               division: data.division,
               section: data.section,
+              role: data.role || "役職未設定"  // 🔥 role を追加！（なければ未設定）
             });
           } else {
             setUser(null);
@@ -37,20 +37,17 @@ function App() {
       } else {
         setUser(null);
       }
-      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
   if (user === undefined) {
-    // ユーザーの判定中は何も表示しない（またはローディング画面）
     return (
       <div className="flex justify-center items-center min-h-screen text-gray-500 text-lg">
         🔄 認証確認中...
       </div>
     );
   }
-  
 
   return (
     <Router>
@@ -59,7 +56,7 @@ function App() {
         <Route path="/signup" element={user ? <Navigate to="/home" /> : <Signup setUser={setUser} />} />
         <Route path="/login" element={user ? <Navigate to="/home" /> : <Login setUser={setUser} />} />
         <Route path="/home" element={user ? <Home user={user} /> : <Navigate to="/login" />} />
-        <Route path="/mypage" element={user ? <MyPage user={user} /> : <Navigate to="/login" />} />
+        <Route path="/mypage" element={user ? <MyPage user={user} setUser={setUser} /> : <Navigate to="/login" />} />
       </Routes>
     </Router>
   );

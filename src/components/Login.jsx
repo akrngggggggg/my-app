@@ -12,6 +12,7 @@ const Login = ({ setUser }) => {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
+  // ✅ メールログイン
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -27,16 +28,18 @@ const Login = ({ setUser }) => {
           name: data.name,
           division: data.division,
           section: data.section,
+          role: data.role || "団員" // 🔥 役職もセット、未設定なら「団員」
         });
         navigate("/home");
       } else {
-        alert("ログインは成功しましたが、ユーザーデータが見つかりませんでした。");
+        alert("ログイン成功しましたが、ユーザーデータが見つかりませんでした。");
       }
     } catch (error) {
       console.error("Login Error: ", error.message);
     }
   };
 
+  // ✅ Googleログイン
   const handleGoogleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -51,10 +54,11 @@ const Login = ({ setUser }) => {
           name: data.name,
           division: data.division,
           section: data.section,
+          role: data.role || "団員"
         });
         navigate("/home");
       } else {
-        alert("Googleログインは成功しましたが、ユーザーデータが見つかりませんでした。");
+        alert("Googleログイン成功しましたが、ユーザーデータが見つかりませんでした。");
       }
     } catch (error) {
       console.error("Google Login Error: ", error.message);
@@ -68,7 +72,7 @@ const Login = ({ setUser }) => {
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="email"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg"
+            className="w-full px-4 py-3 border rounded-lg"
             placeholder="メールアドレス"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -76,7 +80,7 @@ const Login = ({ setUser }) => {
           />
           <input
             type="password"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg"
+            className="w-full px-4 py-3 border rounded-lg"
             placeholder="パスワード"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -84,7 +88,7 @@ const Login = ({ setUser }) => {
           />
           <button
             type="submit"
-            className="w-full bg-green-500 text-white py-3 rounded-lg text-lg font-bold hover:bg-green-600"
+            className="w-full bg-green-500 text-white py-3 rounded-lg"
           >
             ログイン
           </button>
@@ -94,7 +98,7 @@ const Login = ({ setUser }) => {
 
         <button
           onClick={handleGoogleLogin}
-          className="w-full bg-blue-500 text-white py-3 rounded-lg text-lg font-bold hover:bg-blue-600"
+          className="w-full bg-blue-500 text-white py-3 rounded-lg"
         >
           Googleでログイン
         </button>

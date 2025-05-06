@@ -1,11 +1,14 @@
-// Home.jsx
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
 import MapView from "../MapView";
 
 const Home = ({ user }) => {
   const navigate = useNavigate();
+
+  // 🔥 user の division / section を state にして MapView に渡す
+  const [selectedDivision, setSelectedDivision] = useState(user?.division);
+  const [selectedSection, setSelectedSection] = useState(user?.section);
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -14,34 +17,28 @@ const Home = ({ user }) => {
 
   return (
     <div className="h-[100dvh] w-screen flex flex-col bg-gray-100 overflow-hidden">
-      
-      {/* 上部バー：固定配置 */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md flex items-center justify-between px-4 py-2">
-        {/* 🔵 左側：ログイン情報 */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md flex flex-col md:flex-row md:items-center md:justify-between px-4 py-2 gap-2">
         <div className="text-sm font-semibold text-gray-700 truncate">
-          {user?.name}（{user?.division} {user?.section}）でログイン中
+          {user?.name}（{user?.division} {user?.section} / {user?.role || "役職未設定"}）でログイン中
         </div>
-
-        {/* 🔵 右側：マイページ & ログアウト */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate("/mypage")}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-semibold shadow"
-          >
+        <div className="flex gap-2">
+          <button onClick={() => navigate("/mypage")} className="bg-blue-500 text-white px-3 py-1 rounded text-sm">
             マイページ
           </button>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm font-semibold shadow"
-          >
+          <button onClick={handleLogout} className="bg-red-500 text-white px-3 py-1 rounded text-sm">
             ログアウト
           </button>
         </div>
       </div>
 
-      {/* マップ部分：ヘッダー高さ分だけ余白取る */}
-      <div className="flex-1 pt-[60px]"> {/* header高さ: 60px */}
-        <MapView division={user?.division} section={user?.section} />
+      <div className="flex-1 pt-[80px]">
+        <MapView
+          division={selectedDivision}
+          section={selectedSection}
+          setDivision={setSelectedDivision}
+          setSection={setSelectedSection}
+          user={user}
+        />
       </div>
     </div>
   );
